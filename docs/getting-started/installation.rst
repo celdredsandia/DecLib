@@ -9,11 +9,15 @@ Dependency                Minimum version     Notes
 ========================  ==================  ===============================
 C++ compiler              C++20               GCC 11+, Clang 14+, NVCC 12+
 CMake                     3.24
-PETSc                     3.22                Built with MPI
+PETSc                     3.22                Built with MPI, Kokkos and
+                                              real scalars (complex builds
+                                              are rejected)
 Kokkos                    4.4                 Any backend (Serial, OpenMP,
                                               CUDA, HIP, SYCL)
 Python *(optional)*       3.10                For the Python bindings
 petsc4py *(optional)*     matches PETSc
+pybind11 *(optional)*     2.12                Builds the ``declib._core``
+                                              extension
 ========================  ==================  ===============================
 
 Building the C++ library

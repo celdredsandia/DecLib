@@ -51,14 +51,21 @@ templates_path = ["_templates"]
 nitpicky = True
 nitpick_ignore = [
     ("py:class", "petsc4py.PETSc.Vec"),
-    ("py:class", "declib._core.Grid"),
     ("py:mod", "petsc4py"),
+    ("py:class", "mpi4py.MPI.Comm"),
     # Breathe does not emit namespace targets for qualified names.
     ("cpp:identifier", "declib"),
     ("cpp:identifier", "std"),
     ("cpp:identifier", "std::size_t"),
     ("cpp:identifier", "size_t"),
     ("cpp:identifier", "Dim"),
+]
+
+# Types from PETSc, MPI and Kokkos have no Sphinx inventory to link to.
+nitpick_ignore_regex = [
+    ("cpp:identifier",
+     r"(Vec|Mat|MatType|DM|SNES|KSP|MPI_Comm|MATAIJKOKKOS|Petsc[A-Za-z]+|DMStag[A-Za-z]*|Kokkos(::.*)?)"),
+    ("cpp:identifier", r"declib::stag"),
 ]
 
 # Default role for `single backticks`: inline code.
@@ -104,7 +111,8 @@ exhale_args = {
     "fullToctreeMaxDepth": 2,
     "afterTitleDescription": (
         "Generated from the Doxygen comments in ``include/declib``. "
-        "Start with :cpp:class:`declib::Grid` and :cpp:class:`declib::Cochain`."
+        "Start with :cpp:class:`declib::DiscreteManifold`, :cpp:class:`declib::Form` "
+        "and :cpp:class:`declib::LinearOperator`."
     ),
     "contentsDirectives": False,
 }
@@ -129,8 +137,15 @@ napoleon_use_rtype = False
 napoleon_preprocess_types = True
 napoleon_type_aliases = {
     "sequence": ":class:`~collections.abc.Sequence`",
-    "Grid": ":class:`~declib.grid.Grid`",
-    "Cochain": ":class:`~declib.forms.Cochain`",
+    "callable": ":class:`~collections.abc.Callable`",
+    "Topology": ":class:`~declib.topology.Topology`",
+    "StagTopology": ":class:`~declib.topology.StagTopology`",
+    "Geometry": ":class:`~declib.geometry.Geometry`",
+    "GridMapping": ":class:`~declib.mapping.GridMapping`",
+    "Orientation": ":class:`~declib.core.Orientation`",
+    "Bundle": ":class:`~declib.forms.Bundle`",
+    "FormSpace": ":class:`~declib.forms.FormSpace`",
+    "Form": ":class:`~declib.forms.Form`",
 }
 
 intersphinx_mapping = {
@@ -142,7 +157,7 @@ intersphinx_mapping = {
 # don't flag references that only they can resolve.
 if os.environ.get("DECLIB_DOCS_OFFLINE") == "1":
     intersphinx_mapping = {}
-    nitpick_ignore_regex = [(r"py:(class|obj)", r"(collections\.abc\..*|True|False|None)")]
+    nitpick_ignore_regex += [(r"py:(class|obj)", r"(collections\.abc\..*|enum\..*|True|False|None)")]
 
 # -- HTML output --------------------------------------------------------------
 
