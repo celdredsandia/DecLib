@@ -1,0 +1,6 @@
+add_executable(quickstart quickstart.cpp)
+target_link_libraries(quickstart PRIVATE DecLib::declib)
+if(DECLIB_BUILD_TESTS)
+  add_test(NAME example_quickstart COMMAND quickstart)
+  set_tests_properties(example_quickstart PROPERTIES ENVIRONMENT "OMP_NUM_THREADS=1")
+endif()

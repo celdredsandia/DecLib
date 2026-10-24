@@ -1,0 +1,48 @@
+# Doxygen configuration for DecLib++.
+#
+# Only XML output is produced: Sphinx renders it through Breathe/Exhale.
+# Paths are relative to docs/, which is where conf.py and CMake run doxygen.
+# Settings not listed here keep Doxygen's defaults (see `doxygen -g`).
+
+PROJECT_NAME           = "DecLib++"
+PROJECT_BRIEF          = "Discrete exterior calculus on Kokkos and PETSc"
+OUTPUT_DIRECTORY       = _build/doxygen
+
+INPUT                  = ../include
+FILE_PATTERNS          = *.hpp *.h
+RECURSIVE              = YES
+EXCLUDE_PATTERNS       = */detail/* */impl/*
+EXCLUDE_SYMBOLS        = detail impl std
+STRIP_FROM_PATH        = ../include
+STRIP_FROM_INC_PATH    = ../include
+
+EXTRACT_ALL            = YES
+EXTRACT_PRIVATE        = NO
+EXTRACT_STATIC         = YES
+HIDE_UNDOC_MEMBERS     = NO
+JAVADOC_AUTOBRIEF      = YES
+BUILTIN_STL_SUPPORT    = YES
+INLINE_INHERITED_MEMB  = NO
+SORT_MEMBER_DOCS       = NO
+
+# Kokkos / PETSc macros: expand to nothing so signatures stay readable.
+ENABLE_PREPROCESSING   = YES
+MACRO_EXPANSION        = YES
+EXPAND_ONLY_PREDEF     = YES
+PREDEFINED             = DOXYGEN_SHOULD_SKIP_THIS \
+                         KOKKOS_INLINE_FUNCTION= \
+                         KOKKOS_FUNCTION= \
+                         KOKKOS_FORCEINLINE_FUNCTION= \
+                         PETSC_EXTERN=
+
+GENERATE_XML           = YES
+XML_PROGRAMLISTING     = NO
+GENERATE_HTML          = NO
+GENERATE_LATEX         = NO
+
+QUIET                  = YES
+WARNINGS               = YES
+WARN_IF_UNDOCUMENTED   = YES
+WARN_IF_DOC_ERROR      = YES
+WARN_NO_PARAMDOC       = NO
+WARN_LOGFILE           = _build/doxygen/warnings.log

@@ -1,0 +1,801 @@
+<title>DecLib++ Class Design</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Sans+Condensed:wght@500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: sticky contents rail on the left, one reading column; straight forms are blue, twisted forms are rust everywhere. */
+:root {
+  --bg: #f7f8fa;
+  --surface: #ffffff;
+  --fg: #1b2230;
+  --muted: #5a6577;
+  --rule: #d9dee6;
+  --code-bg: #eef1f5;
+  --accent: #1f5f8b;
+  --straight: #1f5fb4;
+  --twisted: #b4531f;
+  --note-bg: #eef4f9;
+  --warn-bg: #fbf3ea;
+  --f-display: "IBM Plex Sans Condensed", "Arial Narrow", system-ui, sans-serif;
+  --f-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #12161d; --surface: #181d26; --fg: #dfe4ec; --muted: #9aa5b6; --rule: #2c3442;
+    --code-bg: #1e2430; --accent: #7cb4dc; --straight: #79a9ee; --twisted: #e69465;
+    --note-bg: #17222e; --warn-bg: #2a2119; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #12161d; --surface: #181d26; --fg: #dfe4ec; --muted: #9aa5b6; --rule: #2c3442;
+  --code-bg: #1e2430; --accent: #7cb4dc; --straight: #79a9ee; --twisted: #e69465;
+  --note-bg: #17222e; --warn-bg: #2a2119; color-scheme: dark;
+}
+body { background: var(--bg); color: var(--fg); font-family: var(--f-body); font-size: 16px; line-height: 1.6; }
+.wrap { display: grid; grid-template-columns: 15rem minmax(0, 1fr); gap: 3rem; max-width: 72rem; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 2.5rem 5rem; }
+nav.toc { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 1.5rem); align-self: start; font-size: 0.85rem; max-height: calc(100vh - 3rem); overflow-y: auto; }
+nav.toc .lbl { font-family: var(--f-display); text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-size: 0.75rem; margin-bottom: 0.5rem; }
+nav.toc ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.15rem; counter-reset: s; }
+nav.toc li { counter-increment: s; }
+nav.toc a { color: var(--fg); text-decoration: none; display: block; padding: 0.15rem 0; }
+nav.toc a::before { content: "§" counter(s) " "; color: var(--muted); font-variant-numeric: tabular-nums; }
+nav.toc a:hover, nav.toc a:focus-visible { color: var(--accent); }
+main { min-width: 0; max-width: 46rem; }
+header.doc { border-bottom: 1px solid var(--rule); padding-bottom: 1.5rem; margin-bottom: 2rem; }
+.eyebrow { font-family: var(--f-display); text-transform: uppercase; letter-spacing: 0.1em; font-size: 0.78rem; color: var(--accent); }
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; line-height: 1.2; }
+h1 { font-size: 2.4rem; margin: 0.3rem 0 0.6rem; font-weight: 600; }
+h2 { font-size: 1.6rem; margin: 3rem 0 0.75rem; font-weight: 600; counter-increment: h2; }
+main { counter-reset: h2; }
+h2::before { content: "§" counter(h2) "  "; color: var(--muted); font-weight: 500; }
+h3 { font-size: 1.15rem; margin: 1.8rem 0 0.4rem; font-weight: 600; }
+p, ul, ol { margin: 0.6rem 0; }
+.meta { color: var(--muted); font-size: 0.9rem; display: flex; flex-wrap: wrap; gap: 0.4rem 1.25rem; }
+.lede { font-size: 1.08rem; }
+a { color: var(--accent); }
+code { font-family: var(--f-mono); font-size: 0.86em; background: var(--code-bg); padding: 0.05em 0.3em; border-radius: 3px; }
+pre { font-family: var(--f-mono); font-size: 0.8rem; line-height: 1.5; background: var(--code-bg); padding: 0.9rem 1rem; border-radius: 4px; overflow-x: auto; margin: 0.8rem 0; }
+pre code { background: none; padding: 0; font-size: inherit; }
+pre .c { color: var(--muted); font-style: italic; }
+pre .k { color: var(--accent); font-weight: 500; }
+.st { color: var(--straight); font-weight: 600; }
+.tw { color: var(--twisted); font-weight: 600; }
+.tbl { overflow-x: auto; margin: 0.9rem 0; }
+table { border-collapse: collapse; font-size: 0.88rem; width: 100%; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--rule); vertical-align: top; }
+th { font-family: var(--f-display); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.75rem; color: var(--muted); }
+.note, .decision { padding: 0.75rem 1rem; border-radius: 4px; margin: 1rem 0; font-size: 0.94rem; }
+.note { background: var(--note-bg); }
+.decision { background: var(--warn-bg); }
+.note b:first-child, .decision b:first-child { font-family: var(--f-display); text-transform: uppercase; letter-spacing: 0.06em; font-size: 0.78rem; display: block; margin-bottom: 0.2rem; }
+figure { margin: 1.2rem 0; }
+figcaption { font-size: 0.85rem; color: var(--muted); margin-top: 0.4rem; }
+.fig { overflow-x: auto; background: var(--surface); border: 1px solid var(--rule); border-radius: 4px; padding: 0.75rem; }
+.fig svg { display: block; max-width: 100%; height: auto; margin: 0 auto; }
+.layers { display: grid; gap: 0.35rem; }
+.layer { display: grid; grid-template-columns: 9.5rem minmax(0,1fr); gap: 0.75rem; border: 1px solid var(--rule); background: var(--surface); padding: 0.55rem 0.8rem; border-radius: 4px; font-size: 0.9rem; }
+.layer .n { font-family: var(--f-display); font-weight: 600; }
+.layer .d { min-width: 0; color: var(--muted); }
+.layer .d code { color: var(--fg); }
+.qs { counter-reset: q; list-style: none; padding: 0; display: grid; gap: 0.9rem; }
+.qs li { counter-increment: q; padding-left: 2.2rem; position: relative; }
+.qs li::before { content: "Q" counter(q); position: absolute; left: 0; font-family: var(--f-display); font-weight: 600; color: var(--accent); }
+.svg-fg { fill: var(--fg); } .svg-muted { fill: var(--muted); }
+@media (max-width: 860px) {
+  .wrap { grid-template-columns: minmax(0,1fr); gap: 1rem; }
+  nav.toc { position: static; max-height: none; border-bottom: 1px solid var(--rule); padding-bottom: 1rem; }
+  nav.toc ol { grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr)); }
+  h1 { font-size: 1.9rem; }
+  .layer { grid-template-columns: minmax(0,1fr); gap: 0.2rem; }
+}
+</style>
+
+<div class="wrap">
+<nav class="toc" aria-label="Contents">
+  <div class="lbl">Contents</div>
+  <ol>
+    <li><a href="#principles">Goals and principles</a></li>
+    <li><a href="#layers">Architecture</a></li>
+    <li><a href="#topology">Topology</a></li>
+    <li><a href="#mapping">Straight–twisted mapping</a></li>
+    <li><a href="#geometry">Geometry</a></li>
+    <li><a href="#forms">Differential forms</a></li>
+    <li><a href="#opframework">Operator framework</a></li>
+    <li><a href="#operators">DEC operators</a></li>
+    <li><a href="#stag">DMStag realization</a></li>
+    <li><a href="#plex">Path to DMPlex</a></li>
+    <li><a href="#python">Python interface</a></li>
+    <li><a href="#invariants">Invariants and tests</a></li>
+    <li><a href="#roadmap">Phased roadmap</a></li>
+    <li><a href="#questions">Decisions</a></li>
+    <li><a href="#scaffold">Changes to the scaffold</a></li>
+  </ol>
+</nav>
+
+<main>
+<header class="doc">
+  <div class="eyebrow">Design document · as decided 23 October 2026</div>
+  <h1>DecLib++ class and interface design</h1>
+  <div class="meta"><span>Prepared for Chris</span><span>23 October 2026</span><span>Status: decided 23 October; phase 1 implemented 24 October</span></div>
+  <div class="note"><b>About this copy</b>This is the design as agreed before implementation, kept as a record of the reasoning. The headers and the Sphinx documentation are the reference for the current API. Phase 1 changed a few details:
+  <ul>
+    <li>Faces are oriented by their sorted axes (xy, xz, yz), not by the right-hand rule on their normal (yz, zx, xy). Every dual cell is oriented by its sorted axes in the same way. See <code>include/declib/stag/orientation.hpp</code>.</li>
+    <li>The PETSc exception is <code>declib::PetscException</code>, because a class named <code>PetscError</code> hid PETSc's own <code>PetscError()</code> in code that says <code>using namespace declib</code>.</li>
+    <li>Essential conditions are attached with <code>FormSpace::with_essential</code> and imposed on an assembled system with <code>apply_essential</code>. Natural boundary data other than zero is planned for phase 2.</li>
+    <li>In Python, mappings, orientations and boundary types are the enums <code>dl.GridMapping</code>, <code>dl.Orientation</code> and <code>dl.Boundary</code>, and <code>Form.to_numpy()</code> returns the owned values as a flat array.</li>
+    <li>Phase 1 was verified on CPU (OpenMP); GPU runs are still to come.</li>
+  </ul></div>
+  <p class="lede">This document proposes the class structure and public interfaces for DecLib++, a discrete exterior calculus library on Kokkos and PETSc with a Python interface. It covers topology, the straight–twisted grid mapping, geometry, scalar and vector-bundle valued forms, and linear, bilinear and nonlinear operators. The first implementation targets topologically structured grids through <code>DMStag</code>. Every interface is written so that a <code>DMPlex</code> backend can be added later without changing user code.</p>
+</header>
+
+<!-- ============================================================ -->
+<h2 id="principles">Goals and principles</h2>
+<ul>
+  <li><b>Separate topology from metric.</b> Topology, the straight–twisted mapping and geometry are three distinct objects. Operators that are metric-free (<i>d</i>, the duality pairing, the cup-product wedge) depend only on topology and mapping, so their exactness properties cannot be broken by a geometry change.</li>
+  <li><b>Forms carry their type.</b> Every form knows its degree, its orientation (straight or twisted) and its fiber (scalar or bundle-valued). Where it lives on the grid is derived from that type through the mapping, never stored separately. Operators check types when they are constructed, not when they are applied.</li>
+  <li><b>Virtual dispatch at operator granularity only.</b> Abstract base classes describe topology, geometry, spaces and operators. Inner loops are Kokkos kernels templated on the dimension and the backend, with no virtual calls on device.</li>
+  <li><b>PETSc is the data and solver substrate.</b> Form data lives in PETSc <code>Vec</code>s of type <code>VECKOKKOS</code>, layouts come from the <code>DM</code>, and every linear operator can present itself as a PETSc <code>Mat</code> (matrix-free shell or assembled) so <code>KSP</code>, <code>SNES</code> and <code>TS</code> work unchanged.</li>
+  <li><b>Discrete identities are part of the contract.</b> Each class lists the identities it guarantees (d∘d = 0, exact Stokes, adjointness of i<sub>X</sub> and its dual, Leibniz rule where it holds). The test suite is built from that list (§12).</li>
+  <li><b>One model, two languages.</b> The Python interface mirrors the C++ classes one to one, so documentation, examples and tests read the same in both.</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="layers">Architecture</h2>
+<p>The library is organised in layers. Each layer depends only on the layers below it.</p>
+<div class="layers" role="list">
+  <div class="layer" role="listitem"><span class="n">Python</span><span class="d">Bindings for every public class, with <code>petsc4py</code> and NumPy interop.</span></div>
+  <div class="layer" role="listitem"><span class="n">Operators</span><span class="d"><code>LinearOperator</code>, <code>BilinearOperator</code>, <code>NonlinearOperator</code>, <code>Functional</code>; concrete d, ⋆, ∧, i<sub>X</sub>, i<sub>X</sub><sup>†</sup>, pairing and derived operators.</span></div>
+  <div class="layer" role="listitem"><span class="n">Forms</span><span class="d"><code>FormType</code>, <code>Bundle</code>, <code>FormSpace</code>, <code>Form</code>, <code>FormView</code>.</span></div>
+  <div class="layer" role="listitem"><span class="n">Discrete manifold</span><span class="d"><code>DiscreteManifold</code> = <code>Topology</code> + <code>GridMapping</code> + <code>Geometry</code> (+ optional <code>Connection</code>).</span></div>
+  <div class="layer" role="listitem"><span class="n">Backends</span><span class="d"><code>stag::</code> (DMStag, stencil kernels) now; <code>plex::</code> (DMPlex, sparse kernels) later. Kokkos execution and memory spaces.</span></div>
+  <div class="layer" role="listitem"><span class="n">External</span><span class="d">PETSc (DM, Vec, Mat, KSP, SNES, TS), Kokkos, MPI.</span></div>
+</div>
+
+<figure>
+<div class="fig">
+<pre class="mermaid">
+classDiagram
+  direction LR
+  class Topology { <<abstract>> }
+  class StagTopology~Dim~
+  class PlexTopology
+  class GridMapping
+  class Geometry { <<abstract>> }
+  class StagGeometry~Dim~
+  class DiscreteManifold
+  class FormSpace { <<abstract>> }
+  class Form
+  class LinearOperator { <<abstract>> }
+  class BilinearOperator { <<abstract>> }
+  class NonlinearOperator { <<abstract>> }
+  Topology <|-- StagTopology~Dim~
+  Topology <|-- PlexTopology
+  Geometry <|-- StagGeometry~Dim~
+  DiscreteManifold o-- Topology
+  DiscreteManifold o-- GridMapping
+  DiscreteManifold o-- Geometry
+  FormSpace --> DiscreteManifold
+  Form --> FormSpace
+  LinearOperator ..> FormSpace : domain, range
+  BilinearOperator ..> FormSpace : left, right, range
+  NonlinearOperator ..> LinearOperator : jacobian()
+  BilinearOperator ..> LinearOperator : partial()
+</pre>
+</div>
+<figcaption>Core classes. <code>PlexTopology</code> is shown to mark the extension point; it is not part of phase 1.</figcaption>
+</figure>
+
+<h3>Namespaces and headers</h3>
+<div class="tbl"><table>
+<thead><tr><th>Namespace</th><th>Header directory</th><th>Contents</th></tr></thead>
+<tbody>
+<tr><td><code>declib</code></td><td><code>declib/core/</code></td><td>Enums (<code>Orientation</code>, <code>Complex</code>), <code>FormType</code>, errors, Kokkos aliases</td></tr>
+<tr><td><code>declib</code></td><td><code>declib/topology/</code>, <code>declib/geometry/</code>, <code>declib/mapping/</code></td><td>Abstract interfaces and <code>DiscreteManifold</code></td></tr>
+<tr><td><code>declib</code></td><td><code>declib/forms/</code></td><td><code>Bundle</code>, <code>FormSpace</code>, <code>Form</code>, <code>FormView</code></td></tr>
+<tr><td><code>declib</code></td><td><code>declib/operators/</code></td><td>Operator bases, composition, concrete operators</td></tr>
+<tr><td><code>declib::stag</code></td><td><code>declib/stag/</code></td><td>DMStag topology, geometry, space, kernels</td></tr>
+<tr><td><code>declib::plex</code></td><td><code>declib/plex/</code></td><td>Reserved for the DMPlex backend</td></tr>
+</tbody></table></div>
+
+<!-- ============================================================ -->
+<h2 id="topology">Topology</h2>
+<p>A <code>Topology</code> is an oriented cell complex of dimension <i>n</i> together with its dual complex. It knows cell counts, incidence (the boundary operators ∂<sub>k</sub>) and orientations, and owns the parallel decomposition. It knows nothing about lengths, areas or coordinates.</p>
+
+<pre><code><span class="k">enum class</span> Complex { Primal, Dual };
+
+<span class="c">/// All k-cells of one complex. Structured backends refine a CellSet into
+/// per-axis strata (x-edges, y-edges, ...), see §3.1.</span>
+<span class="k">struct</span> CellSet { Complex complex; <span class="k">int</span> k; };
+
+<span class="k">class</span> Topology : <span class="k">public</span> std::enable_shared_from_this&lt;Topology&gt; {
+<span class="k">public</span>:
+  <span class="k">virtual</span> ~Topology() = <span class="k">default</span>;
+
+  <span class="k">virtual int</span>       dimension() <span class="k">const noexcept</span> = 0;
+  <span class="k">virtual</span> MPI_Comm  comm() <span class="k">const noexcept</span> = 0;
+  <span class="k">virtual</span> Backend   backend() <span class="k">const noexcept</span> = 0;     <span class="c">// Stag, Plex</span>
+
+  <span class="c">/// Locally owned / ghosted / global counts of k-cells on either complex.</span>
+  <span class="k">virtual</span> std::size_t num_owned(CellSet) <span class="k">const</span> = 0;
+  <span class="k">virtual</span> std::size_t num_local(CellSet) <span class="k">const</span> = 0;
+  <span class="k">virtual</span> PetscInt    num_global(CellSet) <span class="k">const</span> = 0;
+
+  <span class="c">/// Dual k-cells are in bijection with primal (n-k)-cells.</span>
+  CellSet dual_of(CellSet c) <span class="k">const</span>;
+
+  <span class="c">/// Signed incidence ∂_k : C_k -> C_{k-1}, assembled (generic, used by tests
+  /// and by the generic sparse operator path). Structured kernels never call it.</span>
+  <span class="k">virtual</span> Mat incidence(CellSet) <span class="k">const</span> = 0;
+
+  <span class="c">/// Boundary handling of the dual complex (see §3.2).</span>
+  <span class="k">virtual</span> DualBoundary dual_boundary() <span class="k">const noexcept</span> = 0;
+
+  <span class="c">/// Halo width required by the widest operator stencil; fixed at creation.</span>
+  <span class="k">virtual int</span> stencil_width() <span class="k">const noexcept</span> = 0;
+};</code></pre>
+
+<h3>Structured topology</h3>
+<pre><code><span class="k">namespace</span> declib::stag {
+
+<span class="k">enum class</span> Boundary { Periodic, Ghosted, None };   <span class="c">// maps to DMBoundaryType</span>
+
+<span class="k">template</span> &lt;<span class="k">int</span> Dim&gt;
+<span class="k">class</span> Topology <span class="k">final</span> : <span class="k">public</span> declib::Topology {
+<span class="k">public</span>:
+  <span class="k">struct</span> Options {
+    std::array&lt;PetscInt, Dim&gt; cells;
+    std::array&lt;Boundary, Dim&gt; boundary;   <span class="c">// default: Periodic</span>
+    <span class="k">int</span> stencil_width = 1;
+    std::array&lt;PetscInt, Dim&gt; ranks{};    <span class="c">// 0 = PETSC_DECIDE</span>
+  };
+  <span class="k">static</span> std::shared_ptr&lt;Topology&gt; create(MPI_Comm, <span class="k">const</span> Options&amp;);
+
+  <span class="c">/// The base DMStag with one dof on every stratum. Form spaces derive
+  /// compatible DMs from it, so all spaces share one decomposition.</span>
+  DM base_dm() <span class="k">const noexcept</span>;
+
+  <span class="c">/// Owned index box (corner, extent) in element indices, without ghosts.</span>
+  IndexBox&lt;Dim&gt; owned_box() <span class="k">const</span>;
+  IndexBox&lt;Dim&gt; ghosted_box() <span class="k">const</span>;
+
+  <span class="c">/// Cell families of degree k on a complex, one per axis combination.
+  /// 3D primal 1-cells: {x-edges, y-edges, z-edges}.</span>
+  std::span&lt;<span class="k">const</span> StagStratum&gt; strata(CellSet) <span class="k">const</span>;
+  <span class="c">/// ... plus the declib::Topology overrides</span>
+};
+}</code></pre>
+<p>A structured topology is the logically Cartesian product complex. Cells are identified by an element index (<i>i</i>, <i>j</i>, <i>k</i>) plus a stratum, which is a DMStag location such as <code>DMSTAG_LEFT</code>. The dual of a cubical complex is again cubical, which is why the same DMStag can hold dual forms (§9).</p>
+
+<h3>The dual complex at boundaries</h3>
+<p>On periodic grids the dual complex is a closed cubical complex and the dual exterior derivative is exactly ±∂<sup>T</sup>. On non-periodic grids the dual cells around boundary vertices are truncated. The design exposes this as an explicit policy rather than a hidden convention:</p>
+<pre><code><span class="k">enum class</span> DualBoundary {
+  Truncated,   <span class="c">// dual cells clipped at ∂M; dual d gains boundary-closure terms</span>
+  Extended     <span class="c">// dual complex includes cells on ∂M itself (a dual "boundary layer")</span>
+};</code></pre>
+<p>With <code>Extended</code>, the dual complex carries extra boundary cells so that the discrete Stokes theorem holds on the dual side including boundary terms, which is what weak boundary conditions need. <b>Decided (Q2):</b> <code>Extended</code> is the default; <code>Truncated</code> stays available.</p>
+<div class="decision"><b>Decision: boundary conditions (Q3)</b>Essential conditions are constrained dofs on the <code>FormSpace</code> (relative cochains). Natural conditions enter through the extended dual boundary cells, where they appear as boundary terms of the dual exterior derivative.</div>
+
+<!-- ============================================================ -->
+<h2 id="mapping">Straight–twisted grid mapping</h2>
+<p>A continuous k-form is either <span class="st">straight</span> (inner oriented, integrated over cells carrying an inner orientation) or <span class="tw">twisted</span> (outer oriented, sometimes called a pseudo-form or density). Primal cells carry inner orientations; dual cells inherit outer orientations from the primal cells they cross. A discretization must choose which complex hosts which kind of form. That choice is the <code>GridMapping</code>.</p>
+
+<pre><code><span class="k">enum class</span> Orientation { Straight, Twisted };
+
+<span class="k">class</span> GridMapping {
+<span class="k">public</span>:
+  <span class="k">static</span> GridMapping straight_on_primal();   <span class="c">// twisted forms on the dual</span>
+  <span class="k">static</span> GridMapping twisted_on_primal();    <span class="c">// straight forms on the dual</span>
+
+  <span class="c">/// Complex hosting forms of this orientation.</span>
+  Complex host(Orientation) <span class="k">const noexcept</span>;
+
+  <span class="c">/// Cells on which a k-form of this orientation is stored. A k-form always
+  /// lives on k-cells of its host complex: CellSet{host(o), k}.</span>
+  CellSet cells(<span class="k">int</span> k, Orientation o) <span class="k">const noexcept</span>;
+
+  <span class="c">/// The same cells expressed as primal cells; used by structured storage,
+  /// since a dual k-cell is indexed by its primal (n-k)-cell.</span>
+  CellSet storage_cells(<span class="k">int</span> k, Orientation o, <span class="k">int</span> n) <span class="k">const noexcept</span>;
+};</code></pre>
+
+<p>Both mappings occur in practice. Straight-on-primal is the usual DEC convention (potentials and circulations on the primal grid, fluxes and densities on the dual). Twisted-on-primal is the finite-volume and TRiSK convention, where mass is a twisted <i>n</i>-form on primal cells and vorticity lives on dual vertices. The mapping is a runtime value held by the <code>DiscreteManifold</code>, so one topology and geometry can serve both.</p>
+
+<div class="tbl"><table>
+<thead><tr><th>Form (n = 2)</th><th>Straight on primal</th><th>Twisted on primal</th><th>DMStag stratum</th></tr></thead>
+<tbody>
+<tr><td><span class="st">straight 0</span></td><td>primal vertices</td><td>dual vertices</td><td>DOWN_LEFT · ELEMENT</td></tr>
+<tr><td><span class="st">straight 1</span></td><td>primal edges</td><td>dual edges</td><td>LEFT, DOWN · LEFT, DOWN</td></tr>
+<tr><td><span class="st">straight 2</span></td><td>primal cells</td><td>dual cells</td><td>ELEMENT · DOWN_LEFT</td></tr>
+<tr><td><span class="tw">twisted 0</span></td><td>dual vertices</td><td>primal vertices</td><td>ELEMENT · DOWN_LEFT</td></tr>
+<tr><td><span class="tw">twisted 1</span></td><td>dual edges</td><td>primal edges</td><td>LEFT, DOWN · LEFT, DOWN</td></tr>
+<tr><td><span class="tw">twisted 2</span></td><td>dual cells</td><td>primal cells</td><td>DOWN_LEFT · ELEMENT</td></tr>
+</tbody></table></div>
+<p>The Hodge star maps a straight k-form to a twisted (n−k)-form. Under either mapping both sit on the same DMStag stratum, so the diagonal Hodge star is a pointwise scaling, which the table makes visible.</p>
+
+<!-- ============================================================ -->
+<h2 id="geometry">Geometry</h2>
+<p>A <code>Geometry</code> supplies everything metric: vertex coordinates, the placement of dual vertices, primal and dual cell measures, and whatever else a metric operator needs. It holds a reference to its topology and never modifies it. Measures are themselves stored as cochains on the topology, so geometric data uses the same layouts, halos and Kokkos views as forms.</p>
+
+<pre><code><span class="k">enum class</span> DualPlacement { Circumcentric, Barycentric };
+
+<span class="k">class</span> Geometry {
+<span class="k">public</span>:
+  <span class="k">virtual</span> ~Geometry() = <span class="k">default</span>;
+  <span class="k">virtual const</span> Topology&amp; topology() <span class="k">const noexcept</span> = 0;
+  <span class="k">virtual</span> DualPlacement    dual_placement() <span class="k">const noexcept</span> = 0;
+
+  <span class="c">/// |σ| for every k-cell of a complex (length, area, volume; 1 for vertices).</span>
+  <span class="k">virtual const</span> CellField&amp; measure(CellSet) <span class="k">const</span> = 0;
+
+  <span class="c">/// Coordinates of primal vertices and dual vertices (Dim components each).</span>
+  <span class="k">virtual const</span> CellField&amp; coordinates(Complex) <span class="k">const</span> = 0;
+
+  <span class="c">/// True when the metric is a diagonal tensor in the grid frame (uniform or
+  /// rectilinear). Lets operators pick cheaper kernels.</span>
+  <span class="k">virtual bool</span> is_orthogonal() <span class="k">const noexcept</span> = 0;
+
+  <span class="c">/// De Rham map R: integrate a callable form over every cell of a family.
+  /// Used for initial data, manufactured solutions and convergence tests.</span>
+  <span class="k">virtual void</span> de_rham(<span class="k">const</span> FormFunction&amp;, Form&amp;, Quadrature = {}) <span class="k">const</span> = 0;
+};</code></pre>
+
+<div class="tbl"><table>
+<thead><tr><th>Structured geometry</th><th>Description</th><th>Phase</th></tr></thead>
+<tbody>
+<tr><td><code>stag::UniformGeometry&lt;Dim&gt;</code></td><td>Constant spacing per axis; measures computed on the fly, nothing stored.</td><td>1</td></tr>
+<tr><td><code>stag::RectilinearGeometry&lt;Dim&gt;</code></td><td>Tensor-product spacing (1D coordinate arrays per axis); still orthogonal.</td><td>3</td></tr>
+<tr><td><code>stag::MappedGeometry&lt;Dim&gt;</code></td><td>Arbitrary vertex coordinates on the logically Cartesian grid (curvilinear, cubed-sphere panels). Not orthogonal; needs non-diagonal Hodge stars.</td><td>3</td></tr>
+</tbody></table></div>
+
+<h3>Connections for bundle-valued forms</h3>
+<p>Covariant exterior derivatives on non-trivial bundles need parallel transport between fibers. That is metric-like data, so it lives beside the geometry:</p>
+<pre><code><span class="k">class</span> Connection {
+<span class="k">public</span>:
+  <span class="k">virtual const</span> Bundle&amp; bundle() <span class="k">const noexcept</span> = 0;
+  <span class="c">/// Transport U(τ→σ) ∈ GL(r) from the fiber at a (k-1)-cell τ to the fiber at
+  /// an incident k-cell σ, for every incidence pair of the host complex.</span>
+  <span class="k">virtual const</span> TransportField&amp; transport(CellSet k_cells) <span class="k">const</span> = 0;
+  <span class="k">virtual bool</span> is_flat() <span class="k">const noexcept</span> = 0;   <span class="c">// then d∇ ∘ d∇ = 0</span>
+};</code></pre>
+<p>The trivial bundle with the Cartesian frame has the identity connection, which is the only one needed in phase 2.</p>
+
+<h3>The discrete manifold</h3>
+<pre><code><span class="k">class</span> DiscreteManifold {
+<span class="k">public</span>:
+  <span class="c">/// Factory, so that cached spaces can hold a shared reference back.</span>
+  <span class="k">static</span> std::shared_ptr&lt;<span class="k">const</span> DiscreteManifold&gt;
+  create(std::shared_ptr&lt;<span class="k">const</span> Topology&gt;,
+         std::shared_ptr&lt;<span class="k">const</span> Geometry&gt;,
+         GridMapping = GridMapping::straight_on_primal());
+
+  <span class="k">const</span> Topology&amp;    topology() <span class="k">const</span>;
+  <span class="k">const</span> Geometry&amp;    geometry() <span class="k">const</span>;
+  <span class="k">const</span> GridMapping&amp; mapping() <span class="k">const</span>;
+  <span class="k">int</span> dimension() <span class="k">const</span>;
+
+  <span class="c">/// Cached factory: one FormSpace per FormType.</span>
+  std::shared_ptr&lt;<span class="k">const</span> FormSpace&gt; space(<span class="k">const</span> FormType&amp;) <span class="k">const</span>;
+  std::shared_ptr&lt;<span class="k">const</span> FormSpace&gt; space(<span class="k">int</span> k, Orientation, Bundle = Bundle::scalar()) <span class="k">const</span>;
+};</code></pre>
+
+<!-- ============================================================ -->
+<h2 id="forms">Differential forms</h2>
+<p>Forms are split into a type, a space and an element, the same way PETSc separates a <code>DM</code> from a <code>Vec</code>.</p>
+
+<h3>Form type and bundle</h3>
+<pre><code><span class="k">enum class</span> BundleKind { Scalar, Trivial, Tangent, Cotangent, Custom };
+
+<span class="k">class</span> Bundle {
+<span class="k">public</span>:
+  <span class="k">static</span> Bundle scalar();                         <span class="c">// rank 1</span>
+  <span class="k">static</span> Bundle trivial(<span class="k">int</span> rank);              <span class="c">// R^r, global frame</span>
+  <span class="k">static</span> Bundle tangent(<span class="k">int</span> n);                 <span class="c">// vector-valued forms</span>
+  <span class="k">static</span> Bundle cotangent(<span class="k">int</span> n, Orientation);  <span class="c">// covector-valued (e.g. momentum)</span>
+
+  BundleKind  kind() <span class="k">const noexcept</span>;
+  <span class="k">int</span>         rank() <span class="k">const noexcept</span>;          <span class="c">// fiber dimension r</span>
+  Orientation fiber_orientation() <span class="k">const noexcept</span>;
+  <span class="k">bool</span>        is_trivial() <span class="k">const noexcept</span>;
+};
+
+<span class="k">struct</span> FormType {
+  <span class="k">int</span>         degree;        <span class="c">// k, 0 ≤ k ≤ n</span>
+  Orientation orientation;   <span class="c">// straight or twisted</span>
+  Bundle      bundle;        <span class="c">// scalar unless stated</span>
+  <span class="k">bool operator</span>==(<span class="k">const</span> FormType&amp;) <span class="k">const</span> = <span class="k">default</span>;
+};</code></pre>
+<p>An E-valued k-form stores one fiber element (r numbers) per k-cell, expressed in a frame attached to that cell. For a trivial bundle the frame is global, so d, ⋆ and the pairing act componentwise. For tangent and cotangent bundles on a non-Cartesian geometry the frame varies, and operators that compare fibers at different cells must go through a <code>Connection</code>. The fiber orientation lets the type express objects such as a covector-valued twisted <i>n</i>-form (momentum density) or a twisted form valued in straight 1-forms.</p>
+
+<h3>Form space</h3>
+<pre><code><span class="k">class</span> FormSpace {
+<span class="k">public</span>:
+  <span class="k">virtual</span> ~FormSpace() = <span class="k">default</span>;
+  <span class="k">const</span> DiscreteManifold&amp; manifold() <span class="k">const noexcept</span>;
+  <span class="k">const</span> FormType&amp;         type() <span class="k">const noexcept</span>;
+  CellSet                 cells() <span class="k">const noexcept</span>;   <span class="c">// from the mapping</span>
+
+  <span class="k">virtual</span> DM          dm() <span class="k">const noexcept</span> = 0;  <span class="c">// DMStag (or DMPlex + PetscSection)</span>
+  <span class="k">virtual</span> std::size_t local_size() <span class="k">const</span> = 0;
+  <span class="k">virtual</span> PetscInt    global_size() <span class="k">const</span> = 0;
+
+  Form zeros() <span class="k">const</span>;
+  Form from_function(<span class="k">const</span> FormFunction&amp;) <span class="k">const</span>;  <span class="c">// de Rham map</span>
+
+  <span class="c">/// The space this one pairs with: same mapping, opposite orientation,
+  /// degree n-k, dual bundle. ⟨·,·⟩ : V × V.dual_space() → R is metric-free.</span>
+  std::shared_ptr&lt;<span class="k">const</span> FormSpace&gt; dual_space() <span class="k">const</span>;
+
+  <span class="c">/// Constrained dofs for essential boundary conditions (Q3). Natural
+  /// conditions are not set here; they live on extended dual boundary cells.</span>
+  <span class="k">void</span> set_constraint(<span class="k">const</span> BoundaryCondition&amp;);
+};</code></pre>
+<p><code>stag::FormSpace&lt;Dim&gt;</code> builds its DM with <code>DMStagCreateCompatibleDMStag</code> from the topology's base DM, putting <i>r</i> dofs on exactly the strata named by <code>mapping.storage_cells(k, orientation)</code> and zero elsewhere. All spaces therefore share one parallel decomposition, and a vector-bundle valued space differs from a scalar one only in its dof count per stratum.</p>
+
+<h3>Form</h3>
+<pre><code><span class="k">class</span> Form {
+<span class="k">public</span>:
+  <span class="k">explicit</span> Form(std::shared_ptr&lt;<span class="k">const</span> FormSpace&gt;);
+  <span class="k">const</span> FormSpace&amp; space() <span class="k">const noexcept</span>;
+  <span class="k">const</span> FormType&amp;  type()  <span class="k">const noexcept</span>;
+
+  Vec  global_vec() <span class="k">const noexcept</span>;    <span class="c">// owned values, VECKOKKOS</span>
+  Vec  local_vec();                    <span class="c">// ghosted, lazily refreshed</span>
+  <span class="k">void</span> update_ghosts();                <span class="c">// DMGlobalToLocal, tracked by a dirty flag</span>
+
+  <span class="c">/// Device views. Read-only views refresh ghosts first.</span>
+  FormView&lt;<span class="k">const</span> Scalar&gt; view() <span class="k">const</span>;
+  FormView&lt;Scalar&gt;       view_mut();
+
+  <span class="c">/// Vector-space operations forward to PETSc.</span>
+  Form&amp; axpy(Scalar a, <span class="k">const</span> Form&amp; x);
+  Form&amp; scale(Scalar a);
+  Form  copy() <span class="k">const</span>;
+};
+
+<span class="c">/// Kokkos-accessible view; the structured version is indexed by element
+/// index, stratum direction and fiber component.</span>
+<span class="k">template</span> &lt;<span class="k">class</span> T, <span class="k">int</span> Dim&gt;
+<span class="k">struct</span> stag::FormView {
+  KOKKOS_INLINE_FUNCTION T&amp; operator()(<span class="k">int</span> i, <span class="k">int</span> j, <span class="k">int</span> dir, <span class="k">int</span> comp = 0) <span class="k">const</span>;  <span class="c">// Dim = 2</span>
+};</code></pre>
+<p>A <code>Form</code> owns its <code>Vec</code> and has value semantics for copying data (<code>copy()</code>) but cheap move. Spaces, manifolds, topologies and geometries are immutable after setup and shared through <code>shared_ptr&lt;const T&gt;</code>.</p>
+
+<div class="decision"><b>Decision: runtime form types</b>The scaffold's placeholder uses <code>Cochain&lt;Degree, Kind&gt;</code> with compile-time degree. This design makes the degree and orientation runtime values and checks them when operators are built. Reasons: the Python interface needs runtime types anyway; bundle-valued and unstructured spaces multiply template parameters; operator composition such as ⋆⁻¹ d ⋆ d is assembled once, so a runtime check at construction costs nothing per apply. The spatial dimension stays a template parameter inside the structured backend, where it shapes the kernels. A thin typed C++ facade can be added on top later. <b>Decided (Q1):</b> runtime form types.</div>
+<div class="decision"><b>Decision: scalar type (Q6)</b><code>Scalar</code> is <code>PetscScalar</code>, and only real PETSc builds are supported. CMake configuration fails with a clear message when PETSc was built with complex scalars.</div>
+
+<!-- ============================================================ -->
+<h2 id="opframework">Operator framework</h2>
+<p>Operators are objects that are built once (type checks, stencil and geometry factors precomputed, optional assembly) and applied many times. There are four kinds.</p>
+
+<h3>Linear operators</h3>
+<pre><code><span class="k">class</span> LinearOperator : <span class="k">public</span> std::enable_shared_from_this&lt;LinearOperator&gt; {
+<span class="k">public</span>:
+  <span class="k">virtual</span> ~LinearOperator() = <span class="k">default</span>;
+  <span class="k">virtual const</span> FormSpace&amp; domain() <span class="k">const noexcept</span> = 0;
+  <span class="k">virtual const</span> FormSpace&amp; range()  <span class="k">const noexcept</span> = 0;
+
+  <span class="c">/// y = A x  and  y += a A x</span>
+  <span class="k">virtual void</span> apply(<span class="k">const</span> Form&amp; x, Form&amp; y) <span class="k">const</span> = 0;
+  <span class="k">virtual void</span> apply_add(<span class="k">const</span> Form&amp; x, Form&amp; y, Scalar a = 1) <span class="k">const</span>;
+
+  <span class="c">/// Algebraic transpose: range-space values back to domain-space values.</span>
+  <span class="k">virtual void</span> apply_transpose(<span class="k">const</span> Form&amp; y, Form&amp; x) <span class="k">const</span>;
+
+  <span class="c">/// Adjoint under the duality pairing: the operator A† : range.dual_space()
+  /// -> domain.dual_space() with ⟨A x, β⟩ = ⟨x, A† β⟩ exactly.</span>
+  <span class="k">virtual</span> std::shared_ptr&lt;LinearOperator&gt; pairing_adjoint() <span class="k">const</span>;
+
+  <span class="c">/// PETSc views of the operator.</span>
+  Mat shell() <span class="k">const</span>;                                     <span class="c">// MATSHELL, matrix-free</span>
+  <span class="k">virtual</span> Mat assemble(MatType = MATAIJKOKKOS) <span class="k">const</span>;    <span class="c">// explicit sparse</span>
+
+  <span class="k">virtual bool</span> is_diagonal() <span class="k">const noexcept</span> { <span class="k">return false</span>; }
+  <span class="k">virtual</span> std::string name() <span class="k">const</span>;
+};
+
+<span class="c">// Lazy composition, type-checked at construction:</span>
+OpPtr <span class="k">operator</span>*(OpPtr A, OpPtr B);     <span class="c">// A∘B; requires B.range() == A.domain()</span>
+OpPtr <span class="k">operator</span>+(OpPtr A, OpPtr B);     <span class="c">// same domain and range</span>
+OpPtr <span class="k">operator</span>*(Scalar a, OpPtr A);
+OpPtr inverse(OpPtr A, KSPOptions = {}); <span class="c">// exact if diagonal, else wraps a KSP</span>
+OpPtr identity(SpacePtr V);</code></pre>
+<p>Composite nodes (<code>ProductOperator</code>, <code>SumOperator</code>, <code>ScaledOperator</code>, <code>InverseOperator</code>, <code>PairingAdjointOperator</code>) apply lazily with pooled temporaries. <code>assemble()</code> on a product uses <code>MatMatMult</code>; on a diagonal inverse it inverts entries; on a general inverse it refuses. Defaults for <code>pairing_adjoint()</code> are computed from <code>apply_transpose()</code> and the sign pattern of the pairing, so every operator has one; operators with a cheaper dedicated kernel override it.</p>
+
+<h3>Bilinear operators</h3>
+<pre><code><span class="k">class</span> BilinearOperator {
+<span class="k">public</span>:
+  <span class="k">virtual const</span> FormSpace&amp; left()  <span class="k">const noexcept</span> = 0;
+  <span class="k">virtual const</span> FormSpace&amp; right() <span class="k">const noexcept</span> = 0;
+  <span class="k">virtual const</span> FormSpace&amp; range() <span class="k">const noexcept</span> = 0;
+
+  <span class="c">/// c = B(a, b)  and  c += s B(a, b)</span>
+  <span class="k">virtual void</span> apply(<span class="k">const</span> Form&amp; a, <span class="k">const</span> Form&amp; b, Form&amp; c) <span class="k">const</span> = 0;
+  <span class="k">virtual void</span> apply_add(<span class="k">const</span> Form&amp; a, <span class="k">const</span> Form&amp; b, Form&amp; c, Scalar s = 1) <span class="k">const</span>;
+
+  <span class="c">/// Freeze one argument to get a linear operator. The frozen form is held by
+  /// reference, so updating `a` updates the operator (useful inside Newton).</span>
+  <span class="k">virtual</span> OpPtr fix_left(<span class="k">const</span> Form&amp; a) <span class="k">const</span>;    <span class="c">// b ↦ B(a, b)</span>
+  <span class="k">virtual</span> OpPtr fix_right(<span class="k">const</span> Form&amp; b) <span class="k">const</span>;   <span class="c">// a ↦ B(a, b)</span>
+};</code></pre>
+<p>Every bilinear operator gets its Jacobian for free: ∂B(a,b) = B(δa, b) + B(a, δb) = <code>fix_right(b)</code> δa + <code>fix_left(a)</code> δb.</p>
+
+<h3>Nonlinear operators and functionals</h3>
+<pre><code><span class="k">class</span> NonlinearOperator {
+<span class="k">public</span>:
+  <span class="k">virtual const</span> FormSpace&amp; domain() <span class="k">const noexcept</span> = 0;
+  <span class="k">virtual const</span> FormSpace&amp; range()  <span class="k">const noexcept</span> = 0;
+  <span class="k">virtual void</span>  apply(<span class="k">const</span> Form&amp; x, Form&amp; y) <span class="k">const</span> = 0;
+  <span class="k">virtual</span> OpPtr jacobian(<span class="k">const</span> Form&amp; x) <span class="k">const</span> = 0;   <span class="c">// linearization at x</span>
+
+  <span class="c">/// Hooks for SNES: residual and Jacobian callbacks bound to this operator.</span>
+  <span class="k">void</span> attach(SNES, <span class="k">const</span> Form&amp; rhs) <span class="k">const</span>;
+};
+
+<span class="c">/// Scalar-valued nonlinear map, e.g. an energy or a Hamiltonian.</span>
+<span class="k">class</span> Functional {
+<span class="k">public</span>:
+  <span class="k">virtual const</span> FormSpace&amp; domain() <span class="k">const noexcept</span> = 0;
+  <span class="k">virtual</span> Scalar value(<span class="k">const</span> Form&amp; x) <span class="k">const</span> = 0;
+  <span class="c">/// Variational derivative δF/δx as an element of domain().dual_space(),
+  /// so that dF(x)[δx] = ⟨δx, δF/δx⟩ with the metric-free pairing.</span>
+  <span class="k">virtual void</span> gradient(<span class="k">const</span> Form&amp; x, Form&amp; g) <span class="k">const</span> = 0;
+};</code></pre>
+<p>Putting variational derivatives in the dual space is deliberate. It is what Hamiltonian and Poisson-bracket discretizations need: a bracket built from d, ⋆, wedge and the interior product and its pairing adjoint is antisymmetric by construction, so energy conservation holds at the discrete level.</p>
+
+<!-- ============================================================ -->
+<h2 id="operators">DEC operators</h2>
+<p>Each concrete operator is constructed from the space(s) it acts on plus a scheme option. Construction validates the form types and picks the backend kernel from <code>topology().backend()</code>. Schemes are also selectable through the PETSc options database (for example <code>-declib_hodge_type diagonal</code>).</p>
+
+<div class="tbl"><table>
+<thead><tr><th>Operator</th><th>Kind</th><th>Maps</th><th>Depends on</th><th>Phase</th></tr></thead>
+<tbody>
+<tr><td>Exterior derivative <i>d</i></td><td>linear</td><td>k → k+1, same orientation and complex</td><td>topology</td><td>1</td></tr>
+<tr><td>Covariant derivative d<sup>∇</sup></td><td>linear</td><td>E-valued k → k+1</td><td>topology, connection</td><td>3</td></tr>
+<tr><td>Hodge star ⋆</td><td>linear</td><td><span class="st">k</span> ↔ <span class="tw">n−k</span>, flips orientation and complex</td><td>geometry</td><td>1</td></tr>
+<tr><td>Duality pairing ⟨·,·⟩</td><td>bilinear, scalar</td><td>V<sub>k</sub> × V<sub>k</sub>* → ℝ</td><td>topology</td><td>1</td></tr>
+<tr><td>Inner product (mass) M</td><td>linear</td><td>V<sub>k</sub> → V<sub>k</sub>*, M = ⋆ up to sign</td><td>geometry</td><td>1</td></tr>
+<tr><td>Wedge ∧</td><td>bilinear</td><td>k × l → k+l</td><td>topology (same complex), geometry (cross complex)</td><td>2</td></tr>
+<tr><td>Interior product i<sub>X</sub></td><td>bilinear in (X, α)</td><td>k → k−1</td><td>geometry and scheme</td><td>2</td></tr>
+<tr><td>Its pairing adjoint i<sub>X</sub><sup>†</sup></td><td>bilinear in (X, β)</td><td>dual-space (n−k+1) → (n−k)</td><td>same as i<sub>X</sub></td><td>2</td></tr>
+<tr><td>Codifferential δ, Hodge Laplacian Δ, Lie derivative L<sub>X</sub>, flat ♭ and sharp ♯</td><td>derived</td><td>compositions of the above</td><td>—</td><td>1–2</td></tr>
+</tbody></table></div>
+
+<h3>Exterior derivative</h3>
+<pre><code><span class="k">class</span> ExteriorDerivative <span class="k">final</span> : <span class="k">public</span> LinearOperator {
+<span class="k">public</span>:
+  <span class="c">/// Domain: any k-form space with k &lt; n. Range: manifold.space(k+1, same
+  /// orientation, same bundle). Bundle-valued forms act componentwise and
+  /// require a trivial bundle; use CovariantDerivative otherwise.</span>
+  <span class="k">static</span> std::shared_ptr&lt;ExteriorDerivative&gt; create(SpacePtr domain);
+};</code></pre>
+<p>On the primal complex <i>d</i><sub>k</sub> = ∂<sub>k+1</sub><sup>T</sup>. On the dual complex the dual derivative is <i>d̃</i><sub>k</sub> = ±∂<sub>n−k</sub>, with the sign fixed by the orientation convention and boundary closure terms set by <code>DualBoundary</code>. Its <code>pairing_adjoint()</code> is the dual-complex derivative up to sign, which is the discrete integration-by-parts identity. On DMStag it is a two-point difference stencil per axis with no stored coefficients.</p>
+
+<h3>Hodge star</h3>
+<pre><code><span class="k">enum class</span> HodgeScheme { Diagonal, Galerkin, HighOrder };
+
+<span class="k">class</span> HodgeStar <span class="k">final</span> : <span class="k">public</span> LinearOperator {
+<span class="k">public</span>:
+  <span class="c">/// Domain: k-form space of either orientation. Range: (n-k)-form space of
+  /// the opposite orientation (and opposite complex under the mapping).</span>
+  <span class="k">static</span> std::shared_ptr&lt;HodgeStar&gt; create(SpacePtr domain, HodgeScheme = HodgeScheme::Diagonal);
+  HodgeScheme scheme() <span class="k">const noexcept</span>;
+};</code></pre>
+<p><code>Diagonal</code> is the ratio |⋆σ|/|σ| and requires an orthogonal geometry. <code>Galerkin</code> uses tensor-product Whitney forms on the cube, is symmetric positive definite on any mapped geometry, and is not diagonal, so its inverse is a solve. <code>HighOrder</code> reserves room for wider-stencil stars. The star applied twice multiplies by (−1)<sup>k(n−k)</sup> in the continuum; the discrete pair ⋆<sub>k</sub>, ⋆<sub>n−k</sub> is built to satisfy that relation exactly for the diagonal scheme.</p>
+
+<h3>Wedge product</h3>
+<pre><code><span class="c">/// Scheme selector. The concrete schemes are deferred (Q4); candidates include
+/// cubical cup product, averaged cup product and interpolated wedges.</span>
+<span class="k">class</span> WedgeScheme;
+
+<span class="k">class</span> Wedge <span class="k">final</span> : <span class="k">public</span> BilinearOperator {
+<span class="k">public</span>:
+  <span class="c">/// Result orientation: straight∧straight = straight, straight∧twisted =
+  /// twisted, twisted∧twisted = straight. Degree k+l ≤ n.</span>
+  <span class="k">static</span> std::shared_ptr&lt;Wedge&gt; create(SpacePtr left, SpacePtr right, <span class="k">const</span> WedgeScheme&amp;,
+                                     FiberProduct = FiberProduct::scalar());
+};</code></pre>
+<p>Which wedge schemes to provide, and which is the default, is deferred (Q4). The interface only fixes what any scheme must declare: whether it is metric-free (same-complex products such as a cubical cup product are purely topological) or needs geometry (products across primal and dual complexes need interpolation weights), and which identities it satisfies exactly (Leibniz rule, graded commutativity), so tests can be selected per scheme. The scheme is a required argument with no default. For bundle-valued forms a <code>FiberProduct</code> supplies the pointwise fiber map E<sub>1</sub> × E<sub>2</sub> → E<sub>3</sub> (dot, cross, matrix product).</p>
+
+<h3>Interior product and its adjoint</h3>
+<pre><code><span class="k">enum class</span> VectorRepresentation {
+  Flux,         <span class="c">// X given as the twisted (n-1)-form i_X(vol)</span>
+  Circulation   <span class="c">// X given as the straight 1-form X♭</span>
+};
+
+<span class="k">class</span> InteriorProduct <span class="k">final</span> : <span class="k">public</span> BilinearOperator {
+<span class="k">public</span>:
+  <span class="c">/// left(): space of the vector field X (its representation is read from
+  /// the space type). right(): k-forms α. range(): (k-1)-forms i_X α.</span>
+  <span class="k">static</span> std::shared_ptr&lt;InteriorProduct&gt; create(SpacePtr vector_space, SpacePtr form_space,
+                                               <span class="k">const</span> InteriorScheme&amp;);   <span class="c">// schemes deferred (Q4)</span>
+
+  <span class="c">/// The adjoint bilinear operator (X, β) ↦ i_X† β, where β lives in
+  /// range().dual_space() and the result in right().dual_space(), with
+  ///   ⟨ i_X α, β ⟩ = ⟨ α, i_X† β ⟩   for all X, α, β, to round-off.</span>
+  std::shared_ptr&lt;InteriorProductAdjoint&gt; adjoint() <span class="k">const</span>;
+};
+
+<span class="k">class</span> InteriorProductAdjoint <span class="k">final</span> : <span class="k">public</span> BilinearOperator { <span class="c">/* built only via adjoint() */</span> };</code></pre>
+<p>In the continuum the adjoint of i<sub>X</sub> under the wedge pairing is (−1)<sup>k+1</sup> i<sub>X</sub> acting on the complementary twisted forms. In the discrete setting the two cannot both be defined independently and still be exactly adjoint, so the library defines one and derives the other: i<sub>X</sub><sup>†</sup> is constructed as the pairing adjoint of <code>fix_left(X)</code>, with a dedicated stencil kernel that is tested against that definition. This is the property that makes discrete Lie derivatives and Hamiltonian brackets conserve energy.</p>
+
+<h3>Derived operators</h3>
+<pre><code>OpPtr codifferential(SpacePtr V, HodgeScheme = Diagonal);   <span class="c">// δ = ± ⋆⁻¹ d ⋆</span>
+OpPtr hodge_laplacian(SpacePtr V, HodgeScheme = Diagonal);  <span class="c">// Δ = dδ + δd</span>
+OpPtr mass(SpacePtr V, HodgeScheme = Diagonal);             <span class="c">// V → V*, (α,β) = ⟨α, ⋆β⟩</span>
+OpPtr lie_derivative(<span class="k">const</span> Form&amp; X, SpacePtr V);             <span class="c">// L_X = d i_X + i_X d</span></code></pre>
+
+<h3>End-to-end example</h3>
+<pre><code><span class="k">using namespace</span> declib;
+<span class="k">auto</span> topo = stag::Topology&lt;2&gt;::create(PETSC_COMM_WORLD, {.cells = {128, 128}});
+<span class="k">auto</span> geom = stag::UniformGeometry&lt;2&gt;::create(topo, {.lengths = {1.0, 1.0}});
+<span class="k">auto</span> M = DiscreteManifold::create(topo, geom, GridMapping::straight_on_primal());
+
+<span class="k">auto</span> V0  = M-&gt;space(0, Orientation::Straight);   <span class="c">// primal vertices</span>
+<span class="k">auto</span> V1  = M-&gt;space(1, Orientation::Straight);   <span class="c">// primal edges</span>
+<span class="k">auto</span> tV1 = M-&gt;space(1, Orientation::Twisted);    <span class="c">// dual edges</span>
+
+<span class="k">auto</span> d0 = ExteriorDerivative::create(V0);        <span class="c">// Λ0 → Λ1</span>
+<span class="k">auto</span> s1 = HodgeStar::create(V1);                 <span class="c">// Λ1 → tΛ1</span>
+<span class="k">auto</span> d1 = ExteriorDerivative::create(tV1);       <span class="c">// tΛ1 → tΛ2 (dual cells)</span>
+<span class="k">auto</span> s0 = HodgeStar::create(V0);                 <span class="c">// Λ0 → tΛ2</span>
+<span class="k">auto</span> lap = inverse(s0) * d1 * s1 * d0;                        <span class="c">// checked: spaces chain correctly</span>
+
+Form u = V0-&gt;from_function(manufactured_u), f = V0-&gt;zeros();
+lap-&gt;apply(u, f);
+KSP ksp; <span class="c">/* ... */</span> KSPSetOperators(ksp, lap-&gt;shell(), s0-&gt;assemble());</code></pre>
+
+<!-- ============================================================ -->
+<h2 id="stag">DMStag realization</h2>
+
+<figure>
+<div class="fig">
+<svg viewBox="0 0 520 260" width="520" role="img" aria-label="Two by two staggered grid with primal edges solid and dual edges dashed. One element is highlighted with its four DMStag strata labelled.">
+  <g stroke="var(--muted)" stroke-width="1" stroke-dasharray="4 4" fill="none">
+    <line x1="80" y1="20" x2="80" y2="240"/><line x1="200" y1="20" x2="200" y2="240"/><line x1="320" y1="20" x2="320" y2="240"/>
+    <line x1="20" y1="70" x2="340" y2="70"/><line x1="20" y1="180" x2="340" y2="180"/>
+  </g>
+  <g stroke="var(--fg)" stroke-width="1.5" fill="none">
+    <line x1="20" y1="20" x2="20" y2="240"/><line x1="140" y1="20" x2="140" y2="240"/><line x1="260" y1="20" x2="260" y2="240"/>
+    <line x1="20" y1="20" x2="260" y2="20"/><line x1="20" y1="125" x2="260" y2="125"/><line x1="20" y1="230" x2="260" y2="230"/>
+  </g>
+  <rect x="20" y="125" width="120" height="105" fill="var(--straight)" opacity="0.08"/>
+  <line x1="20" y1="125" x2="20" y2="230" stroke="var(--straight)" stroke-width="4"/>
+  <line x1="20" y1="230" x2="140" y2="230" stroke="var(--straight)" stroke-width="4"/>
+  <circle cx="20" cy="230" r="6" fill="var(--straight)"/>
+  <circle cx="80" cy="180" r="5" fill="var(--twisted)"/>
+  <g font-family="IBM Plex Sans, system-ui, sans-serif" font-size="12" class="svg-fg">
+    <text x="28" y="180" class="svg-fg">LEFT</text>
+    <text x="64" y="248" class="svg-fg">DOWN</text>
+    <text x="88" y="168" class="svg-fg">ELEMENT</text>
+    <text x="26" y="222" class="svg-fg" font-size="10">DOWN_LEFT</text>
+  </g>
+  <g font-family="IBM Plex Sans, system-ui, sans-serif" font-size="12">
+    <line x1="370" y1="40" x2="400" y2="40" stroke="var(--fg)" stroke-width="1.5"/><text x="408" y="44" class="svg-fg">primal edge</text>
+    <line x1="370" y1="64" x2="400" y2="64" stroke="var(--muted)" stroke-dasharray="4 4"/><text x="408" y="68" class="svg-fg">dual edge</text>
+    <circle cx="385" cy="92" r="5" fill="var(--straight)"/><text x="408" y="96" class="svg-fg">strata owned by</text>
+    <text x="408" y="112" class="svg-fg">element (0, 0)</text>
+    <circle cx="385" cy="136" r="5" fill="var(--twisted)"/><text x="408" y="140" class="svg-fg">dual vertex</text>
+    <text x="370" y="178" class="svg-muted" font-size="11">Each element owns one</text>
+    <text x="370" y="193" class="svg-muted" font-size="11">vertex, one edge per axis</text>
+    <text x="370" y="208" class="svg-muted" font-size="11">and its interior: the</text>
+    <text x="370" y="223" class="svg-muted" font-size="11">DMStag strata.</text>
+  </g>
+</svg>
+</div>
+<figcaption>Element (0, 0) of a 2D DMStag and the four strata it owns. The dual k-cell crossing each primal (n−k)-cell is stored on that primal cell's stratum.</figcaption>
+</figure>
+
+<h3>Storage</h3>
+<div class="tbl"><table>
+<thead><tr><th>Primal cell (3D)</th><th>DMStag location</th><th>Dual cell stored there</th></tr></thead>
+<tbody>
+<tr><td>vertex</td><td><code>BACK_DOWN_LEFT</code></td><td>dual 3-cell</td></tr>
+<tr><td>x-, y-, z-edge</td><td><code>BACK_DOWN</code>, <code>BACK_LEFT</code>, <code>DOWN_LEFT</code></td><td>dual 2-cell (face normal to the edge)</td></tr>
+<tr><td>yz-, xz-, xy-face</td><td><code>LEFT</code>, <code>DOWN</code>, <code>BACK</code></td><td>dual 1-cell (edge through the face)</td></tr>
+<tr><td>element</td><td><code>ELEMENT</code></td><td>dual 0-cell</td></tr>
+</tbody></table></div>
+<p>Each <code>stag::FormSpace</code> has its own compatible DMStag with dofs only on its strata, created with <code>DMSetVecType(dm, VECKOKKOS)</code>. Device access goes through <code>VecGetKokkosView</code> on the local vector, wrapped in an unmanaged <code>Kokkos::View&lt;Scalar****, LayoutRight&gt;</code> indexed (<i>k</i>, <i>j</i>, <i>i</i>, slot), with slots resolved once per space from <code>DMStagGetLocationSlot</code>. <code>stag::FormView</code> hides the slot arithmetic.</p>
+
+<h3>Kernels</h3>
+<ul>
+  <li>One functor per operator and scheme, templated on <code>Dim</code> and the <code>GridMapping</code> case, launched with <code>Kokkos::MDRangePolicy&lt;Kokkos::Rank&lt;Dim&gt;&gt;</code> over the owned box.</li>
+  <li>Halo exchange happens before a kernel through <code>Form::view()</code>; kernels never communicate.</li>
+  <li><code>assemble()</code> uses <code>MatSetPreallocationCOO</code> / <code>MatSetValuesCOO</code> with indices produced on device, so assembled matrices are also built on the GPU.</li>
+  <li>Uniform geometry passes spacings as kernel arguments; other geometries pass views of their measure fields.</li>
+</ul>
+
+<h3>Orientation conventions</h3>
+<p>Primal edges point along +axis; primal faces are oriented by their normal axis through the right-hand rule (yz, zx, xy); elements are positively oriented. A dual k-cell carries the outer orientation induced by the primal (n−k)-cell it crosses. The convention is written down once in <code>stag/orientation.hpp</code>, and the sign tables of d̃, ⋆ and the pairing are generated from it so they cannot drift apart.</p>
+
+<!-- ============================================================ -->
+<h2 id="plex">Path to DMPlex</h2>
+<p>Nothing above the backend layer refers to DMStag. Adding unstructured grids means adding implementations, not changing interfaces.</p>
+<div class="tbl"><table>
+<thead><tr><th>Interface</th><th>Structured (phase 1)</th><th>Unstructured (later)</th></tr></thead>
+<tbody>
+<tr><td><code>Topology</code></td><td><code>stag::Topology&lt;Dim&gt;</code>, implicit incidence</td><td><code>plex::Topology</code>, cones from the Hasse diagram, CSR incidence on device</td></tr>
+<tr><td><code>Geometry</code></td><td>uniform, rectilinear, mapped</td><td>simplicial or polyhedral, circumcentric or barycentric duals</td></tr>
+<tr><td><code>FormSpace</code></td><td>compatible DMStag per form type</td><td><code>DMPlex</code> clone + <code>PetscSection</code> with dofs on one depth stratum</td></tr>
+<tr><td>Kernels</td><td>stencils over MDRange</td><td>sparse loops over CSR incidence and cell lists</td></tr>
+<tr><td>Dual complex</td><td>implicit on the same DM</td><td>indexed by primal cells, same as structured</td></tr>
+</tbody></table></div>
+<p>Two choices keep this cheap. First, dual cells are always indexed by their primal partner, on both backends, so <code>GridMapping</code> needs no backend logic. Second, every operator has a generic fallback that applies its assembled matrix, so a new backend runs end to end as soon as <code>incidence()</code> and the geometric measures exist, and fast kernels can follow operator by operator.</p>
+
+<!-- ============================================================ -->
+<h2 id="python">Python interface</h2>
+<p>Bindings are a pybind11 compiled module <code>declib._core</code> with a thin pure-Python layer for docstrings and conveniences, matching the docs scaffold. <code>Vec</code>, <code>Mat</code> and <code>DM</code> handles cross the boundary as <code>petsc4py</code> objects.</p>
+<pre><code><span class="k">import</span> declib <span class="k">as</span> dl
+
+topo = dl.StagTopology(cells=(128, 128), boundary=<span class="k">"periodic"</span>)
+geom = dl.UniformGeometry(topo, lengths=(1.0, 1.0))
+M = dl.DiscreteManifold(topo, geom, mapping=dl.Mapping.STRAIGHT_ON_PRIMAL)
+
+V0, V1, tV1 = M.space(0, dl.STRAIGHT), M.space(1, dl.STRAIGHT), M.space(1, dl.TWISTED)
+d0, d1 = dl.ExteriorDerivative(V0), dl.ExteriorDerivative(tV1)
+s0, s1 = dl.HodgeStar(V0), dl.HodgeStar(V1)
+lap = dl.inverse(s0) @ d1 @ s1 @ d0
+
+u = V0.from_function(<span class="k">lambda</span> x, y: np.sin(2*np.pi*x) * np.sin(2*np.pi*y))
+f = lap(u)                 <span class="c"># apply</span>
+A = lap.assemble()         <span class="c"># petsc4py.PETSc.Mat</span>
+arr = f.to_numpy()         <span class="c"># host copy of owned values, shaped by stratum</span></code></pre>
+<p><code>@</code> composes operators, calling an operator applies it, and bilinear operators accept <code>B(a, b)</code> and <code>B.fix_left(a)</code>. Python subclasses of <code>LinearOperator</code> and <code>NonlinearOperator</code> are allowed (host execution) so users can prototype operators before writing a kernel.</p>
+
+<!-- ============================================================ -->
+<h2 id="invariants">Invariants and tests</h2>
+<p>Each row is a property the class promises; each becomes a parametrised test over dimension (1, 2, 3), mapping, boundary type, bundle rank and MPI size (1, 4).</p>
+<div class="tbl"><table>
+<thead><tr><th>Class</th><th>Invariant</th><th>Tolerance</th></tr></thead>
+<tbody>
+<tr><td>Topology</td><td>∂<sub>k</sub>∂<sub>k+1</sub> = 0; counts satisfy the Euler characteristic</td><td>exact</td></tr>
+<tr><td>ExteriorDerivative</td><td>d∘d = 0; ⟨dα, c⟩ = ⟨α, ∂c⟩ (Stokes) on random chains</td><td>round-off</td></tr>
+<tr><td>ExteriorDerivative</td><td>d R = R d (commutes with de Rham map) for polynomial forms</td><td>quadrature</td></tr>
+<tr><td>Pairing</td><td>pairing_adjoint of d equals the dual derivative up to sign</td><td>exact</td></tr>
+<tr><td>HodgeStar</td><td>⋆⋆ = (−1)<sup>k(n−k)</sup> (diagonal); SPD (Galerkin); convergence order under refinement</td><td>round-off / rate</td></tr>
+<tr><td>Wedge</td><td>Bilinearity; whatever identities the scheme declares (e.g. exact Leibniz rule for a cup product); convergence order</td><td>round-off / rate</td></tr>
+<tr><td>InteriorProduct</td><td>⟨i<sub>X</sub>α, β⟩ = ⟨α, i<sub>X</sub><sup>†</sup>β⟩; dedicated kernel equals derived adjoint; convergence order</td><td>round-off / rate</td></tr>
+<tr><td>LinearOperator</td><td><code>shell()</code>, <code>assemble()</code> and <code>apply()</code> agree; transpose consistency ⟨Ax, y⟩ = ⟨x, Aᵀy⟩</td><td>round-off</td></tr>
+<tr><td>BilinearOperator</td><td>fix_left/fix_right agree with apply; Jacobian passes a Taylor test</td><td>rate 2</td></tr>
+<tr><td>Form, FormSpace</td><td>ghost exchange is idempotent; results independent of MPI decomposition</td><td>bitwise</td></tr>
+</tbody></table></div>
+
+<!-- ============================================================ -->
+<h2 id="roadmap">Phased roadmap</h2>
+<div class="tbl"><table>
+<thead><tr><th>Phase</th><th>Scope</th><th>Done when</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Core types, <code>stag::Topology</code> (1D–3D, periodic and non-periodic), <code>GridMapping</code>, <code>UniformGeometry</code>, scalar <code>FormSpace</code>/<code>Form</code>, d, diagonal ⋆, pairing, linear operator algebra, PETSc Mat/KSP interop, Python bindings for all of it</td><td>Hodge Laplacian solves converge at second order in 1D–3D on CPU and GPU, both mappings</td></tr>
+<tr><td>2</td><td>Bilinear and nonlinear frameworks, <code>Functional</code>, wedge and interior product (with its adjoint) interfaces plus the first schemes, chosen when phase 2 starts, Lie derivative, trivial-bundle forms</td><td>A conservative advection test conserves the discrete energy to round-off</td></tr>
+<tr><td>3</td><td>Rectilinear and mapped geometry, Galerkin ⋆, interpolated wedge, connections and covariant d<sup>∇</sup></td><td>Convergence on a curvilinear grid; d<sup>∇</sup>∘d<sup>∇</sup> = 0 for a flat connection</td></tr>
+<tr><td>4</td><td><code>plex::</code> backend through the generic assembled path, then native kernels</td><td>Phase 1 tests pass on simplicial meshes</td></tr>
+</tbody></table></div>
+
+<!-- ============================================================ -->
+<h2 id="questions">Decisions</h2>
+<p>The six open questions were decided by Chris on 23 October 2026.</p>
+<ol class="qs">
+  <li><b>Form types are runtime values.</b> <code>FormType</code> is checked when operators are constructed; <code>Dim</code> stays a template parameter inside the structured backend.</li>
+  <li><b>The dual boundary treatment is <code>Extended</code>.</b> The dual complex includes cells on the boundary, so the discrete Stokes theorem holds with boundary terms. <code>Truncated</code> stays available.</li>
+  <li><b>Boundary conditions:</b> essential conditions are constrained dofs on the <code>FormSpace</code>; natural conditions enter through the extended dual boundary cells.</li>
+  <li><b>Wedge and interior product schemes are deferred.</b> The interfaces take a scheme argument with no default; concrete schemes are chosen when phase 2 starts.</li>
+  <li><b>Bindings use pybind11.</b></li>
+  <li><b>Scalars are <code>PetscScalar</code>, real builds only.</b> Complex PETSc builds are rejected at configure time.</li>
+</ol>
+
+<!-- ============================================================ -->
+<h2 id="scaffold">Changes to the scaffold</h2>
+<p>The docs scaffold contains placeholder headers. Adopting this design renames and splits them as follows.</p>
+<div class="tbl"><table>
+<thead><tr><th>Scaffold placeholder</th><th>Becomes</th></tr></thead>
+<tbody>
+<tr><td><code>Grid</code></td><td><code>Topology</code> (cell complex) plus <code>Geometry</code> (metric), joined by <code>DiscreteManifold</code></td></tr>
+<tr><td><code>StructuredGrid&lt;Dim&gt;</code></td><td><code>stag::Topology&lt;Dim&gt;</code> + <code>stag::UniformGeometry&lt;Dim&gt;</code></td></tr>
+<tr><td><code>UnstructuredGrid</code></td><td><code>plex::Topology</code> (phase 4)</td></tr>
+<tr><td><code>Cochain&lt;Degree, Kind&gt;</code>, <code>enum Complex</code></td><td><code>Form</code> + <code>FormSpace</code> + <code>FormType</code>; location comes from <code>Orientation</code> through <code>GridMapping</code></td></tr>
+<tr><td><code>d(omega)</code>, <code>hodge_star(omega, kind)</code></td><td><code>ExteriorDerivative</code> and <code>HodgeStar</code> operator objects, with <code>HodgeKind</code> renamed <code>HodgeScheme</code></td></tr>
+</tbody></table></div>
+</main>
+</div>

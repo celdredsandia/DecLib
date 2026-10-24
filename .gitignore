@@ -1,0 +1,7 @@
+build/
+docs/_build/
+docs/api/cpp/
+docs/api/generated/
+__pycache__/
+*.so
+build-*/
