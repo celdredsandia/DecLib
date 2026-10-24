@@ -5,6 +5,11 @@ This page records the class design and the decisions behind it. The headers
 under ``include/declib`` are the authoritative interface; this page explains
 how they fit together.
 
+The full `design document <../declibpp-design.html>`_ that preceded the
+implementation is kept in the repository as ``docs/design/declibpp-design.html``.
+It gives the reasoning behind each class in more depth, with notes on where
+phase 1 departed from it.
+
 Layers
 ------
 

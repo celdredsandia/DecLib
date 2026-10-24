@@ -165,6 +165,8 @@ if os.environ.get("DECLIB_DOCS_OFFLINE") == "1":
 html_theme = "furo"
 html_title = f"DecLib++ {release}"
 html_static_path = ["_static"]
+# The original design document, published as-is next to the generated pages.
+html_extra_path = ["design"]
 html_theme_options = {
     "source_repository": "https://github.com/celdredsandia/declib",
     "source_branch": "main",
