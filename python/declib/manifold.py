@@ -58,5 +58,8 @@ class DiscreteManifold:
             raise ValueError(f"degree must be in [0, {self.dimension}], got {degree}")
         ftype = FormType(degree, orientation, bundle if bundle is not None else Bundle.scalar())
         if ftype not in self._spaces:
-            self._spaces[ftype] = FormSpace._from_impl(self, ftype, self._impl.space(ftype))
+            b = ftype.bundle
+            impl = self._impl.space(degree, orientation.value, b.kind.value, b.rank,
+                                    b.fiber_orientation.value)
+            self._spaces[ftype] = FormSpace._from_impl(self, ftype, impl)
         return self._spaces[ftype]

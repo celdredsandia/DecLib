@@ -12,6 +12,10 @@
 
 namespace declib {
 
+namespace detail {
+struct StencilOp;
+}
+
 /// @brief Discretization of the Hodge star.
 enum class HodgeScheme {
     /**
@@ -60,8 +64,9 @@ public:
     [[nodiscard]] const SpacePtr& domain() const noexcept override;
     [[nodiscard]] const SpacePtr& range() const noexcept override;
     void apply(const Form& x, Form& y) const override;
-    void apply_transpose(const Form& y, Form& x) const override;
+    [[nodiscard]] Mat assemble(MatType type = MATAIJKOKKOS) const override;
     [[nodiscard]] bool is_diagonal() const noexcept override;
+    [[nodiscard]] std::string name() const override;
 
 private:
     HodgeStar(SpacePtr domain, HodgeScheme scheme);
@@ -69,6 +74,7 @@ private:
     SpacePtr domain_;
     SpacePtr range_;
     HodgeScheme scheme_;
+    std::shared_ptr<const detail::StencilOp> stencil_;
 };
 
 } // namespace declib

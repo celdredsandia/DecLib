@@ -107,7 +107,7 @@ Roadmap
        scalar forms, :math:`d`, diagonal :math:`\star`, pairing, linear operator
        algebra, PETSc interop, Python bindings
      - Hodge Laplacian solves converge at second order on CPU and GPU, both
-       mappings
+       mappings. *Implemented; verified on CPU (OpenMP), GPU pending.*
    * - 2
      - Bilinear and nonlinear frameworks, functionals, wedge and interior
        product with the first schemes, Lie derivative, trivial-bundle forms

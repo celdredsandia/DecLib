@@ -44,7 +44,7 @@ class Boundary(enum.Enum):
     GHOSTED = "ghosted"
     """Non-periodic, with a ghost layer."""
     NONE = "none"
-    """Non-periodic, without a ghost layer."""
+    """Non-periodic; stored like :attr:`GHOSTED`, since operators read one cell past the boundary."""
 
 
 class Topology:
@@ -68,11 +68,11 @@ class Topology:
 
     def num_owned(self, cells: CellSet) -> int:
         """Number of cells of ``cells`` owned by this rank."""
-        return self._impl.num_owned(cells)
+        return self._impl.num_owned(cells.complex.value, cells.k)
 
     def num_global(self, cells: CellSet) -> int:
         """Number of cells of ``cells`` over all ranks."""
-        return self._impl.num_global(cells)
+        return self._impl.num_global(cells.complex.value, cells.k)
 
     def incidence(self, cells: CellSet):
         """Signed incidence matrix :math:`\\partial_k` as a ``petsc4py.PETSc.Mat``.
@@ -82,7 +82,7 @@ class Topology:
         cells : CellSet
             The :math:`k`-cells, :math:`1 \\le k \\le n`, on either complex.
         """
-        return self._impl.incidence(cells)
+        return self._impl.incidence(cells.complex.value, cells.k)
 
 
 class StagTopology(Topology):
@@ -101,7 +101,7 @@ class StagTopology(Topology):
         Dual closure on non-periodic axes.
     stencil_width : int, default 1
         Halo width in elements.
-    comm : mpi4py.MPI.Comm, optional
+    comm : mpi4py.MPI.Comm or petsc4py.PETSc.Comm, optional
         Communicator; defaults to ``PETSC_COMM_WORLD``.
 
     Examples

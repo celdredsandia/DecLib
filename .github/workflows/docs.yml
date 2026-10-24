@@ -33,7 +33,7 @@ jobs:
 
       - name: Build docs (warnings are errors)
         run: |
-          cmake -S . -B build -DDECLIB_BUILD_DOCS=ON
+          cmake -S . -B build -DDECLIB_BUILD_LIBRARY=OFF -DDECLIB_BUILD_DOCS=ON
           cmake --build build --target docs
 
       - name: Doxygen warnings

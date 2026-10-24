@@ -17,7 +17,16 @@ Examples
 """
 
 from declib.core import Complex, Orientation
-from declib.forms import Bundle, Form, FormSpace, FormType
+from declib.forms import (
+    BoundaryRegion,
+    Bundle,
+    BundleKind,
+    EssentialCondition,
+    Form,
+    FormSpace,
+    FormType,
+    Side,
+)
 from declib.geometry import DualPlacement, UniformGeometry
 from declib.manifold import DiscreteManifold
 from declib.mapping import GridMapping
@@ -32,6 +41,7 @@ from declib.operators import (
     NonlinearOperator,
     Pairing,
     Wedge,
+    apply_essential,
     codifferential,
     hodge_laplacian,
     identity,
@@ -46,12 +56,15 @@ __version__ = "0.1.0"
 __all__ = [
     "BilinearOperator",
     "Boundary",
+    "BoundaryRegion",
     "Bundle",
+    "BundleKind",
     "CellSet",
     "Complex",
     "DiscreteManifold",
     "DualBoundary",
     "DualPlacement",
+    "EssentialCondition",
     "ExteriorDerivative",
     "Form",
     "FormSpace",
@@ -65,9 +78,11 @@ __all__ = [
     "NonlinearOperator",
     "Orientation",
     "Pairing",
+    "Side",
     "StagTopology",
     "UniformGeometry",
     "Wedge",
+    "apply_essential",
     "codifferential",
     "hodge_laplacian",
     "identity",

@@ -12,6 +12,10 @@
 
 namespace declib {
 
+namespace detail {
+struct StencilOp;
+}
+
 /**
  * @brief The exterior derivative \f$d_k : \Lambda^k \to \Lambda^{k+1}\f$.
  *
@@ -44,14 +48,16 @@ public:
     [[nodiscard]] const SpacePtr& domain() const noexcept override;
     [[nodiscard]] const SpacePtr& range() const noexcept override;
     void apply(const Form& x, Form& y) const override;
-    void apply_transpose(const Form& y, Form& x) const override;
     [[nodiscard]] OpPtr pairing_adjoint() const override;
+    [[nodiscard]] Mat assemble(MatType type = MATAIJKOKKOS) const override;
+    [[nodiscard]] std::string name() const override;
 
 private:
     explicit ExteriorDerivative(SpacePtr domain);
 
     SpacePtr domain_;
     SpacePtr range_;
+    std::shared_ptr<const detail::StencilOp> stencil_;
 };
 
 /**

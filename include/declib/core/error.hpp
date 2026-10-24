@@ -28,7 +28,9 @@ public:
 };
 
 /// @brief Thrown by a PETSc call that returned a nonzero error code.
-class PetscError : public Error {
+/// (Not named PetscError, which would hide PETSc's own PetscError() from
+/// code that says `using namespace declib`.)
+class PetscException : public Error {
 public:
     using Error::Error;
 };

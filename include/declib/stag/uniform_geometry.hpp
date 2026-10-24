@@ -5,7 +5,9 @@
 #pragma once
 
 #include <array>
+#include <map>
 #include <memory>
+#include <mutex>
 
 #include "declib/core/types.hpp"
 #include "declib/geometry/geometry.hpp"
@@ -17,8 +19,9 @@ namespace declib::stag {
  * @brief Constant spacing \f$h_i = L_i / N_i\f$ along each axis.
  *
  * Orthogonal, with circumcentric (equivalently barycentric) dual vertices
- * at element centres. Measures are products of spacings and are computed
- * on the fly inside kernels; measure() materialises them only on request.
+ * at element centres. On a non-periodic axis the dual cells crossing the
+ * boundary planes are half cells, so their measures carry a factor
+ * \f$1/2\f$ per such axis.
  *
  * Rectilinear (tensor-product spacing) and mapped (curvilinear) geometries
  * follow in phase 3 with the same interface.
@@ -30,16 +33,24 @@ class UniformGeometry final : public declib::Geometry {
 public:
     /// @brief Creation options.
     struct Options {
-        std::array<Real, Dim> lengths{}; ///< Domain extent \f$L_i\f$ per axis.
+        std::array<Real, Dim> lengths{}; ///< Domain extent \f$L_i\f$ per axis; zero entries mean 1.
         std::array<Real, Dim> origin{};  ///< Coordinates of the low corner.
     };
 
     /// @brief Attach a uniform geometry to @p topology.
     [[nodiscard]] static std::shared_ptr<const UniformGeometry>
-    create(std::shared_ptr<const Topology<Dim>> topology, const Options& options);
+    create(std::shared_ptr<const Topology<Dim>> topology, const Options& options = {});
+
+    ~UniformGeometry() override;
 
     /// @brief Spacing \f$h_i\f$ along @p axis.
     [[nodiscard]] Real spacing(int axis) const;
+
+    /// @brief Domain extent \f$L_i\f$ along @p axis.
+    [[nodiscard]] Real length(int axis) const;
+
+    /// @brief Low corner coordinate along @p axis.
+    [[nodiscard]] Real origin(int axis) const;
 
     [[nodiscard]] const declib::Topology& topology() const noexcept override;
     [[nodiscard]] DualPlacement dual_placement() const noexcept override { return DualPlacement::Circumcentric; }
@@ -53,6 +64,9 @@ private:
 
     std::shared_ptr<const Topology<Dim>> topology_;
     Options options_;
+    mutable std::mutex mutex_;
+    mutable std::map<std::pair<int, int>, std::unique_ptr<CellField>> measures_;
+    mutable std::map<int, std::unique_ptr<CellField>> coordinates_;
 };
 
 } // namespace declib::stag

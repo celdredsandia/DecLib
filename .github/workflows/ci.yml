@@ -1,0 +1,88 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PETSC_VERSION: "3.22.2"
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  build-and-test:
+    name: Build and test (OpenMP)
+    runs-on: ubuntu-24.04
+    env:
+      OMP_NUM_THREADS: "1"
+      OMP_PROC_BIND: "false"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set install prefix
+        run: echo "PETSC_PREFIX=$HOME/petsc" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install system packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libopenmpi-dev openmpi-bin liblapack-dev libblas-dev libgtest-dev ninja-build
+
+      - name: Install Python packages
+        # petsc4py 3.22 needs Cython < 3.1 and a setuptools that still has dry_run.
+        run: pip install numpy "cython==3.0.11" "setuptools==75.8.0" wheel pybind11 pytest
+
+      - name: Restore PETSc
+        id: petsc-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/petsc
+          key: petsc-${{ env.PETSC_VERSION }}-kokkos-openmp-py${{ env.PYTHON_VERSION }}-${{ runner.os }}-v1
+
+      - name: Build PETSc with Kokkos and petsc4py
+        if: steps.petsc-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p "$RUNNER_TEMP/petsc-src"
+          cd "$RUNNER_TEMP/petsc-src"
+          pip download --no-deps --no-binary :all: "petsc==${PETSC_VERSION}"
+          tar xzf petsc-${PETSC_VERSION}.tar.gz
+          cd petsc-${PETSC_VERSION}
+          python ./configure --prefix="$PETSC_PREFIX" PETSC_ARCH=arch-ci \
+            --with-cc=mpicc --with-cxx=mpicxx --with-fc=0 \
+            --with-debugging=0 COPTFLAGS=-O2 CXXOPTFLAGS=-O2 \
+            --with-openmp=1 --with-kokkos=1 --download-kokkos=1 --download-kokkos-kernels=1 \
+            --with-shared-libraries=1 --with-x=0 --with-petsc4py=1
+          make PETSC_DIR="$PWD" PETSC_ARCH=arch-ci all
+          make PETSC_DIR="$PWD" PETSC_ARCH=arch-ci install
+
+      - name: Configure
+        run: |
+          export PKG_CONFIG_PATH="$PETSC_PREFIX/lib/pkgconfig"
+          export Kokkos_DIR="$PETSC_PREFIX/lib/cmake/Kokkos"
+          export PYTHONPATH="$PETSC_PREFIX/lib"
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER=mpicc -DCMAKE_CXX_COMPILER=mpicxx \
+            -DDECLIB_BUILD_PYTHON=ON -DPython_EXECUTABLE="$(which python)" \
+            -DDECLIB_MPIEXEC_PREFLAGS=--oversubscribe
+
+      - name: Build
+        run: cmake --build build -j
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+      - name: Convergence rates
+        if: always()
+        run: grep -h "rate" build/Testing/Temporary/LastTest.log | sort -u || true

@@ -32,18 +32,43 @@ class LinearOperator:
         self.apply(x, y)
         return y
 
+    def apply_transpose(self, y: Form, x: Form) -> None:
+        """Algebraic transpose :math:`x = A^T y` of the coefficient matrix."""
+        self._impl.apply_transpose(y._impl, x._impl)
+
+    @property
+    def is_diagonal(self) -> bool:
+        """Whether the coefficient matrix is diagonal."""
+        return self._impl.is_diagonal()
+
+    @property
+    def name(self) -> str:
+        """Name used in error messages."""
+        return self._impl.name()
+
     def __matmul__(self, other: LinearOperator) -> LinearOperator:
-        if other.range is not self.domain:
+        if not other.range.same_type_as(self.domain):
             raise TypeError(f"cannot compose: {other.range.type} does not match {self.domain.type}")
         return _Wrapped(other.domain, self.range, _core.compose(self._impl, other._impl))
 
     def __add__(self, other: LinearOperator) -> LinearOperator:
-        if other.domain is not self.domain or other.range is not self.range:
-            raise TypeError("cannot add operators with different domains or ranges")
+        _check_same_spaces(self, other)
         return _Wrapped(self.domain, self.range, _core.add(self._impl, other._impl))
+
+    def __sub__(self, other: LinearOperator) -> LinearOperator:
+        _check_same_spaces(self, other)
+        return _Wrapped(self.domain, self.range, _core.subtract(self._impl, other._impl))
 
     def __rmul__(self, a: float) -> LinearOperator:
         return _Wrapped(self.domain, self.range, _core.scale(a, self._impl))
+
+    def __neg__(self) -> LinearOperator:
+        return (-1.0) * self
+
+    @property
+    def T(self) -> LinearOperator:
+        """The algebraic transpose :math:`A^T : W \\to V` as an operator."""
+        return _Wrapped(self.range, self.domain, _core.transpose(self._impl))
 
     def pairing_adjoint(self) -> LinearOperator:
         """The adjoint :math:`A^\\dagger` under the duality pairing.
@@ -61,6 +86,11 @@ class LinearOperator:
     def assemble(self, mat_type: str = "aijkokkos"):
         """An assembled ``petsc4py.PETSc.Mat`` of the given type."""
         return self._impl.assemble(mat_type)
+
+
+def _check_same_spaces(a: LinearOperator, b: LinearOperator) -> None:
+    if not (a.domain.same_type_as(b.domain) and a.range.same_type_as(b.range)):
+        raise TypeError("cannot add operators with different domains or ranges")
 
 
 class _Wrapped(LinearOperator):
@@ -194,11 +224,7 @@ class Wedge(BilinearOperator):
     """
 
     def __init__(self, left: FormSpace, right: FormSpace, scheme: str):
-        self._impl = _core.Wedge(left._impl, right._impl, scheme)
-        self.left, self.right = left, right
-        tl, tr = left.type, right.type
-        orient = Orientation.STRAIGHT if tl.orientation is tr.orientation else Orientation.TWISTED
-        self.range = left.manifold.space(tl.degree + tr.degree, orient)
+        raise NotImplementedError("Wedge schemes are planned for phase 2")
 
 
 class InteriorProduct(BilinearOperator):
@@ -219,10 +245,7 @@ class InteriorProduct(BilinearOperator):
     """
 
     def __init__(self, vector_space: FormSpace, form_space: FormSpace, scheme: str):
-        self._impl = _core.InteriorProduct(vector_space._impl, form_space._impl, scheme)
-        t = form_space.type
-        self.left, self.right = vector_space, form_space
-        self.range = form_space.manifold.space(t.degree - 1, t.orientation, t.bundle)
+        raise NotImplementedError("interior product schemes are planned for phase 2")
 
     def adjoint(self) -> BilinearOperator:
         """The pairing adjoint :math:`i_X^\\dagger`.
@@ -282,7 +305,7 @@ class Functional:
 
 
 def codifferential(space: FormSpace, scheme: HodgeScheme = HodgeScheme.DIAGONAL) -> LinearOperator:
-    """Codifferential :math:`\\delta = (-1)^{n(k+1)+1} \\star^{-1} d \\star` on ``space``."""
+    """Codifferential :math:`\\delta = (-1)^{n(k+1)+1} \\star d \\star` on ``space``."""
     t = space.type
     target = space.manifold.space(t.degree - 1, t.orientation, t.bundle)
     return _Wrapped(space, target, _core.codifferential(space._impl, scheme.value))
@@ -300,4 +323,15 @@ def mass(space: FormSpace, scheme: HodgeScheme = HodgeScheme.DIAGONAL) -> Linear
 
 def lie_derivative(X: Form, space: FormSpace, scheme: str) -> LinearOperator:
     """Lie derivative :math:`L_X = d\\, i_X + i_X\\, d` on ``space``."""
-    return _Wrapped(space, space, _core.lie_derivative(X._impl, space._impl, scheme))
+    raise NotImplementedError("the Lie derivative is planned for phase 2")
+
+
+def apply_essential(space: FormSpace, A, x: Form, b: Form) -> None:
+    """Impose the essential conditions of ``space`` on the system :math:`A x = b`.
+
+    Writes the prescribed values into ``x``, zeros the constrained rows and
+    columns of the ``petsc4py.PETSc.Mat`` ``A`` (unit diagonal, so ``A``
+    stays symmetric if it was) and moves the known values to ``b``. See
+    :cpp:func:`declib::apply_essential`.
+    """
+    _core.apply_essential(space._impl, A, x._impl, b._impl)

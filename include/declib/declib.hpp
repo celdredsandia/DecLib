@@ -22,6 +22,7 @@
 #include "declib/mapping/grid_mapping.hpp"
 #include "declib/operators/bilinear_operator.hpp"
 #include "declib/operators/derived.hpp"
+#include "declib/operators/essential.hpp"
 #include "declib/operators/exterior_derivative.hpp"
 #include "declib/operators/hodge_star.hpp"
 #include "declib/operators/interior_product.hpp"

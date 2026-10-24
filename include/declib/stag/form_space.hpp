@@ -4,8 +4,9 @@
  */
 #pragma once
 
-#include <array>
 #include <memory>
+#include <span>
+#include <vector>
 
 #include <petscdmstag.h>
 
@@ -30,24 +31,31 @@ class FormSpace final : public declib::FormSpace {
 public:
     /// @brief Created by DiscreteManifold::space(); not called directly.
     FormSpace(std::shared_ptr<const DiscreteManifold> manifold, FormType type);
+    ~FormSpace() override;
+    FormSpace& operator=(const FormSpace&) = delete;
 
     /// @brief The structured topology.
     [[nodiscard]] const Topology<Dim>& topology() const noexcept;
 
-    /// @brief Strata carrying values, in slot order.
-    [[nodiscard]] std::span<const Stratum> strata() const noexcept;
+    /// @brief Primal dimension of the strata carrying values.
+    [[nodiscard]] int storage_dimension() const noexcept;
 
-    /// @brief Slot of fiber component @p comp on stratum number @p s in a local element block.
-    [[nodiscard]] PetscInt slot(int s, int comp = 0) const;
-
-    /// @brief Values per element block (strata times fiber rank).
-    [[nodiscard]] PetscInt slots_per_element() const noexcept;
+    /// @brief Strata carrying values, ordered by axis bit mask.
+    [[nodiscard]] std::span<const Stratum> strata() const;
 
     [[nodiscard]] DM dm() const noexcept override;
     [[nodiscard]] std::size_t local_size() const override;
     [[nodiscard]] PetscInt global_size() const override;
+    [[nodiscard]] IS boundary_indices(const BoundaryRegion& region) const override;
+
+protected:
+    [[nodiscard]] SpacePtr clone_with(std::vector<EssentialCondition> conditions) const override;
+    void validate_region(const BoundaryRegion& region) const override;
 
 private:
+    FormSpace(const FormSpace& other);
+
+    const Topology<Dim>* topology_;
     DM dm_ = nullptr;
 };
 

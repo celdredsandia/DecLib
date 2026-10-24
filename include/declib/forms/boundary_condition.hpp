@@ -35,6 +35,18 @@ public:
     /// @brief Cells marked with @p value in the `DMLabel` named @p label (unstructured grids).
     [[nodiscard]] static BoundaryRegion label(std::string label, int value);
 
+    /// @brief True for all().
+    [[nodiscard]] bool is_all() const noexcept { return !axis_ && label_.empty(); }
+
+    /// @brief The axis of a face() region.
+    [[nodiscard]] std::optional<int> axis() const noexcept { return axis_; }
+
+    /// @brief The side of a face() region.
+    [[nodiscard]] Side side() const noexcept { return side_; }
+
+    /// @brief The label name of a label() region, empty otherwise.
+    [[nodiscard]] const std::string& label_name() const noexcept { return label_; }
+
 private:
     BoundaryRegion() = default;
 
@@ -48,9 +60,11 @@ private:
  * @brief An essential (strong) boundary condition.
  *
  * Fixes the values of a form on the cells of its host complex that lie in
- * @ref region. FormSpace removes those cells from the unknowns, so the
- * remaining degrees of freedom form the relative cochain space
- * \f$C^k(M, \partial M)\f$ (or a subset of \f$\partial M\f$).
+ * @ref region. Attach conditions with FormSpace::with_essential() and
+ * impose them on an assembled system with apply_essential(), which
+ * eliminates the constrained rows and columns, so the remaining degrees of
+ * freedom form the relative cochain space \f$C^k(M, \partial M)\f$ (or
+ * relative to a part of \f$\partial M\f$).
  *
  * Natural (weak) conditions are not expressed with this class: they are
  * values on the extended dual boundary cells, see DualBoundary::Extended

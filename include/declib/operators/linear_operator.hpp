@@ -26,7 +26,8 @@ using OpPtr = std::shared_ptr<const LinearOperator>;
  *
  * Operators are built once (type checks, stencil and geometry factors
  * precomputed, optional assembly) and applied many times. Construction
- * throws TypeError on incompatible spaces; apply() does no type checks.
+ * throws TypeError on incompatible spaces; apply() only checks that its
+ * arguments belong to domain() and range().
  *
  * Every linear operator can present itself to PETSc either matrix-free
  * (shell()) or assembled (assemble()), so `KSP`, `SNES` and `TS` work on
@@ -41,7 +42,10 @@ using OpPtr = std::shared_ptr<const LinearOperator>;
  */
 class LinearOperator : public std::enable_shared_from_this<LinearOperator> {
 public:
-    virtual ~LinearOperator() = default;
+    LinearOperator() = default;
+    LinearOperator(const LinearOperator&) = delete;
+    LinearOperator& operator=(const LinearOperator&) = delete;
+    virtual ~LinearOperator();
 
     /// @brief The space \f$V\f$ of inputs.
     [[nodiscard]] virtual const SpacePtr& domain() const noexcept = 0;
@@ -56,6 +60,7 @@ public:
     virtual void apply_add(const Form& x, Form& y, Scalar a = 1) const;
 
     /// @brief Algebraic transpose \f$x = A^T y\f$ of the coefficient matrix.
+    /// The default multiplies by the transpose of the cached assembled matrix.
     virtual void apply_transpose(const Form& y, Form& x) const;
 
     /// @brief Convenience: a new form \f$A x\f$ in range().
@@ -85,6 +90,16 @@ public:
 
     /// @brief Name used in error messages and `-mat_view` output.
     [[nodiscard]] virtual std::string name() const;
+
+protected:
+    /// @brief assemble() computed once and kept for the lifetime of the operator.
+    [[nodiscard]] Mat cached_matrix() const;
+
+    /// @brief Throw TypeError unless @p x and @p y belong to domain() and range().
+    void check_args(const Form& x, const Form& y) const;
+
+private:
+    mutable Mat cached_ = nullptr;
 };
 
 /// @brief Options for operators inverted with a Krylov solver.

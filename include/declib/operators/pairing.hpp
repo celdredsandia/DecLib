@@ -41,11 +41,25 @@ public:
     /// @brief \f$\langle \alpha, \beta \rangle\f$, reduced over all ranks.
     [[nodiscard]] Scalar operator()(const Form& alpha, const Form& beta) const;
 
+    ~Pairing();
+    Pairing(const Pairing&) = delete;
+    Pairing& operator=(const Pairing&) = delete;
+
+    /**
+     * @brief The signs \f$s_\sigma\f$ for @p space as a global vector in its layout.
+     *
+     * \f$\langle \alpha, \beta \rangle = \sum s_\sigma \alpha_\sigma \beta_\sigma\f$,
+     * the coefficients of \f$\beta\f$ indexed like those of \f$\alpha\f$.
+     * @return A new `Vec` owned by the caller.
+     */
+    [[nodiscard]] static Vec signs(const FormSpace& space);
+
 private:
     explicit Pairing(SpacePtr space);
 
     SpacePtr left_;
     SpacePtr right_;
+    Vec signs_ = nullptr;
 };
 
 } // namespace declib

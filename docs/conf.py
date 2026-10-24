@@ -53,6 +53,7 @@ nitpick_ignore = [
     ("py:class", "petsc4py.PETSc.Vec"),
     ("py:mod", "petsc4py"),
     ("py:class", "mpi4py.MPI.Comm"),
+    ("py:class", "petsc4py.PETSc.Comm"),
     # Breathe does not emit namespace targets for qualified names.
     ("cpp:identifier", "declib"),
     ("cpp:identifier", "std"),
@@ -64,7 +65,7 @@ nitpick_ignore = [
 # Types from PETSc, MPI and Kokkos have no Sphinx inventory to link to.
 nitpick_ignore_regex = [
     ("cpp:identifier",
-     r"(Vec|Mat|MatType|DM|SNES|KSP|MPI_Comm|MATAIJKOKKOS|Petsc[A-Za-z]+|DMStag[A-Za-z]*|Kokkos(::.*)?)"),
+     r"(Vec|Mat|MatType|DM|IS|SNES|KSP|MPI_Comm|MATAIJKOKKOS|Petsc[A-Za-z]+|DMStag[A-Za-z]*|Kokkos(::.*)?)"),
     ("cpp:identifier", r"declib::stag"),
 ]
 

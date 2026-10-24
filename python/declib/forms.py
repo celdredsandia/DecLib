@@ -7,7 +7,8 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-from declib.core import Orientation
+from declib import _core
+from declib.core import Complex, Orientation
 
 if TYPE_CHECKING:
     from declib.manifold import DiscreteManifold
@@ -77,6 +78,52 @@ class FormType:
     """Fiber."""
 
 
+class Side(enum.Enum):
+    """Side of a boundary face. Mirror of :cpp:enum:`declib::Side`."""
+
+    LOW = "low"
+    """Index 0 along the axis."""
+    HIGH = "high"
+    """Last index along the axis."""
+
+
+class BoundaryRegion:
+    """A part of the boundary. Mirror of :cpp:class:`declib::BoundaryRegion`.
+
+    Create one with :meth:`all` or :meth:`face`.
+    """
+
+    def __init__(self, impl, description: str):
+        self._impl, self._description = impl, description
+
+    @classmethod
+    def all(cls) -> BoundaryRegion:
+        """The whole boundary."""
+        return cls(_core.BoundaryRegion.all(), "all")
+
+    @classmethod
+    def face(cls, axis: int, side: Side) -> BoundaryRegion:
+        """The boundary plane at the low or high end of ``axis``."""
+        return cls(_core.BoundaryRegion.face(axis, side is Side.HIGH), f"face({axis}, {side.name})")
+
+    def __repr__(self) -> str:
+        return f"BoundaryRegion.{self._description}"
+
+
+@dataclass(frozen=True)
+class EssentialCondition:
+    """Prescribed values on a boundary region. Mirror of :cpp:struct:`declib::EssentialCondition`.
+
+    The constrained values become fixed degrees of freedom; see
+    :meth:`FormSpace.with_essential` and :func:`declib.operators.apply_essential`.
+    """
+
+    region: BoundaryRegion = field(default_factory=BoundaryRegion.all)
+    """Where the condition holds."""
+    value: Callable | None = None
+    """``value(*x)``, as for :meth:`FormSpace.from_function`; ``None`` means zero."""
+
+
 class FormSpace:
     """The space of discrete forms of one :class:`FormType`.
 
@@ -106,6 +153,20 @@ class FormSpace:
         """Number of values over all ranks."""
         return self._impl.global_size()
 
+    @property
+    def local_size(self) -> int:
+        """Number of values owned by this rank."""
+        return self._impl.local_size()
+
+    @property
+    def complex(self) -> Complex:
+        """Complex hosting the forms (see :class:`~declib.mapping.GridMapping`)."""
+        return Complex(self._impl.complex())
+
+    def same_type_as(self, other: FormSpace) -> bool:
+        """Same manifold and form type; essential conditions may differ."""
+        return self.manifold is other.manifold and self.type == other.type
+
     def dual_space(self) -> FormSpace:
         """The space paired with this one: degree :math:`n-k`, opposite orientation."""
         n = self.manifold.dimension
@@ -116,7 +177,26 @@ class FormSpace:
         """A new form with all values zero."""
         return Form(self)
 
-    def from_function(self, omega: Callable) -> Form:
+    def with_essential(self, conditions: list[EssentialCondition]) -> FormSpace:
+        """A copy of this space with essential (Dirichlet-type) conditions added.
+
+        Only forms hosted on the primal complex take essential conditions;
+        forms on the dual complex take boundary data through the extended
+        dual cells.
+        """
+        impl = self._impl.with_essential([(c.region._impl, c.value) for c in conditions])
+        space = FormSpace._from_impl(self.manifold, self.type, impl)
+        space.essential_conditions = tuple(self.essential_conditions) + tuple(conditions)
+        return space
+
+    essential_conditions: tuple[EssentialCondition, ...] = ()
+    """Conditions attached with :meth:`with_essential`."""
+
+    def boundary_indices(self, region: BoundaryRegion):
+        """Global indices of the values on ``region`` owned by this rank, as a ``petsc4py.PETSc.IS``."""
+        return self._impl.boundary_indices(region._impl)
+
+    def from_function(self, omega: Callable, order: int = 4) -> Form:
         """A new form holding the de Rham map of ``omega``.
 
         Parameters
@@ -124,10 +204,15 @@ class FormSpace:
         omega : callable
             ``omega(*x)`` returns the form's components at the point ``x``
             in the basis :math:`dx^{i_1} \\wedge \\dots \\wedge dx^{i_k}`,
-            :math:`i_1 < \\dots < i_k`, lexicographically ordered.
+            :math:`i_1 < \\dots < i_k`, lexicographically ordered, one
+            block of ``rank`` values per basis element for bundle-valued
+            forms. A scalar return value is accepted when there is a
+            single component.
+        order : int, default 4
+            Polynomial degree integrated exactly on each cell.
         """
         form = Form(self)
-        self._impl.de_rham(omega, form._impl)
+        self._impl.de_rham(omega, form._impl, order)
         return form
 
 
@@ -157,8 +242,8 @@ class Form:
         return self._impl.global_vec()
 
     def to_numpy(self):
-        """Host copy of the owned values, shaped by element index and stratum."""
-        return self._impl.to_numpy()
+        """Host copy of the owned values, in the global ``DMStag`` ordering."""
+        return self.vec.getArray(readonly=True).copy()
 
     def copy(self) -> Form:
         """A deep copy in the same space."""
@@ -166,8 +251,26 @@ class Form:
         out._impl.copy_from(self._impl)
         return out
 
+    def fill(self, a: float) -> Form:
+        """Set every value to ``a``."""
+        self._impl.fill(a)
+        return self
+
+    def axpy(self, a: float, x: Form) -> Form:
+        """``self += a * x``."""
+        self._impl.axpy(a, x._impl)
+        return self
+
+    def norm(self, kind: str = "2") -> float:
+        """Euclidean (``"2"``) or max (``"max"``) norm of the coefficient vector."""
+        return self._impl.norm2() if kind == "2" else self._impl.norm_max()
+
     def __iadd__(self, other: Form) -> Form:
         self._impl.axpy(1.0, other._impl)
+        return self
+
+    def __isub__(self, other: Form) -> Form:
+        self._impl.axpy(-1.0, other._impl)
         return self
 
     def __imul__(self, a: float) -> Form:

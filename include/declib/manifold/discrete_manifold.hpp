@@ -5,6 +5,9 @@
 #pragma once
 
 #include <memory>
+#include <mutex>
+#include <utility>
+#include <vector>
 
 #include "declib/core/types.hpp"
 #include "declib/forms/bundle.hpp"
@@ -24,8 +27,9 @@ namespace declib {
  * geometries and either mapping. Metric-free operators read only the
  * topology and the mapping; metric operators also read the geometry.
  *
- * DiscreteManifold is the factory for form spaces and caches one FormSpace
- * per FormType. Create it with create() so that spaces can hold a shared
+ * DiscreteManifold is the factory for form spaces: space() returns the same
+ * FormSpace for the same FormType while any reference to it is alive.
+ * Create the manifold with create() so that spaces can hold a shared
  * reference back to it.
  *
  * @code{.cpp}
@@ -68,6 +72,7 @@ public:
     [[nodiscard]] SpacePtr space(int k, Orientation o, Bundle bundle = Bundle::scalar()) const;
 
     /// @brief Attach a connection for a non-trivial bundle (phase 3).
+    /// Must be called before any space of that bundle is created.
     void set_connection(std::shared_ptr<const Connection> connection);
 
     /// @brief The connection for @p bundle, or null if none was attached.
@@ -79,6 +84,10 @@ private:
     std::shared_ptr<const Topology> topology_;
     std::shared_ptr<const Geometry> geometry_;
     GridMapping mapping_;
+    // Spaces hold a strong reference to the manifold, so the cache is weak.
+    mutable std::mutex mutex_;
+    mutable std::vector<std::pair<FormType, std::weak_ptr<const FormSpace>>> spaces_;
+    std::vector<std::shared_ptr<const Connection>> connections_;
 };
 
 } // namespace declib
